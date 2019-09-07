@@ -1,0 +1,71 @@
+trigger:
+  # batch: true
+  branches:
+    include:
+    - "*"
+  tags:
+    include:
+    - "*"
+
+strategy:
+  matrix:
+    linux:
+      imageName: 'ubuntu-16.04'
+      TARGET: x86_64-unknown-linux-gnu
+      PROFILE: linux
+    macos:
+      imageName: 'macos-10.13'
+      TARGET: x86_64-apple-darwin
+      PROFILE: mac
+    windows:
+      imageName: 'vs2017-win2016'
+      TARGET: x86_64-pc-windows-msvc
+      PROFILE: windows
+
+pool:
+  vmImage: $(imageName)
+
+variables:
+  RUSTUP_TOOLCHAIN: stable
+  CARGO_MAKE_CI: TRUE
+  # CARGO_MAKE_RUN_CODECOV: true
+
+steps:
+
+# Linux
+- bash: |
+    curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $RUSTUP_TOOLCHAIN
+    echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+  condition: eq( variables['Agent.OS'], 'Linux' )
+  displayName: install rustup
+
+# macOS
+- bash: |
+    curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $RUSTUP_TOOLCHAIN
+    echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+  condition: eq( variables['Agent.OS'], 'Darwin' )
+  displayName: install rustup
+
+# Windows
+- script: |
+    curl -sSf -o rustup-init.exe https://win.rustup.rs
+    rustup-init.exe -y --default-toolchain %RUSTUP_TOOLCHAIN%
+    set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+    echo "##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin"
+  condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  displayName: install rustup
+
+# All platforms.
+- script: cargo install cargo-make || echo "cargo-make already installed"
+  displayName: install cargo-make
+
+- script: |
+      rustup -V
+      rustc -V
+      cargo -V
+      cargo make --version
+  displayName: query versions
+
+- script: |
+    cargo make --profile $(PROFILE) ci-flow
+  displayName: ci-flow

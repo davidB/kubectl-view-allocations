@@ -1,0 +1,9 @@
+upload-doc=false
+pre-release-commit-message=":rocket: (cargo-release) version {{version}}"
+pro-release-commit-message=":construction: (cargo-release) start next development iteration {{next_version}}"
+tag-message=":bookmark: {{version}}"
+dev-version-ext="dev"
+# pre-release-replacements = [
+#     {file="CHANGELOG.md", search="x.y.z-dev", replace="{{version}}"},
+#     {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}"}
+# ]
