@@ -1,0 +1,26 @@
+[package]
+name = "kubectl-show-resources"
+version = "0.1.0-dev"
+authors = ["David Bernard"]
+edition = "2018"
+description = "kubectl plugin to list resources requested and limit"
+readme = "README.md"
+license = "CC0-1.0"
+#keywords = [""]
+#repository = "https://github.com/davidB/kubectl-show-resources"
+#homepage = "https://github.com/davidB/kubectl-show-resources"
+exclude = ["/azure-pipelines.yml", "/docs/**", "/scripts", ".gitignore", "/tests/**"]
+
+[dependencies]
+kube = { version = "0.15.1", features = ["openapi"] }
+k8s-openapi = { version = "0.5.0", features = ["v1_15"] }
+log = "0.4.8"
+env_logger = "0.6.2"
+failure = "0.1.5"
+serde_json = "1.0.40"
+itertools = "0.8.0"
+# tabwriter = "1.1.0"
+prettytable-rs = { version = "0.8.0", default-features = false}
+
+[dev-dependencies]
+spectral = "0.6.0"
