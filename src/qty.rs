@@ -4,7 +4,7 @@
 
 use std::str::FromStr;
 use failure::Error;
-use crate::human_format::{Formatter, Scales};
+use crate::human_format::{Formatter};
 
 #[derive(Debug,Clone, PartialOrd, Default)]
 pub struct Qty {
@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn test_from_str() -> Result<(), Box<dyn std::error::Error>> {
         assert_that!(Qty::from_str("1k")?).is_equal_to(Qty::from_str("1000")?);
-        assert_that!(Qty::from_str("1k")?).is_equal_to(Qty::from_str("1000000m")?);
+        assert_that!(Qty::from_str("1000000m")?).is_equal_to(Qty::from_str("1000")?);
         assert_that!(Qty::from_str("1Ki")?).is_equal_to(Qty::from_str("1024")?);
         Ok(())
     }

@@ -186,7 +186,7 @@ impl Scales {
     /// Instantiates a new `Scales` with Binary keys
     pub fn Binary() -> Self {
         Scales {
-            base: 1000,
+            base: 1024,
             suffixes: vec![
                 "".to_owned(),
                 "Ki".to_owned(),
@@ -223,7 +223,10 @@ impl Scales {
 
     fn get_magnitude_multipler(&self, value: &str) -> f64 {
         let ndx = 0;
-
+        //HACK
+        if value == "m" {
+            return 0.001f64;
+        }
         for ndx in 0..self.suffixes.len() {
 
             if value == self.suffixes[ndx] {
