@@ -21,6 +21,6 @@ serde_json = "1.0.40"
 itertools = "0.8.0"
 # tabwriter = "1.1.0"
 prettytable-rs = { version = "0.8.0", default-features = false}
-
+# human_format = "1.0.2" # vendored due to println and bugs
 [dev-dependencies]
 spectral = "0.6.0"

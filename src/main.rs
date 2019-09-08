@@ -1,4 +1,5 @@
 mod qty;
+mod human_format;
 use env_logger;
 use failure::Error;
 use qty::Qty;
@@ -63,15 +64,11 @@ fn sum_by_usage<'a>(rsrcs: &[&Resource]) -> QtyOfUsage {
 }
 
 fn make_kind_x_usage(rsrcs: &[Resource]) -> Vec<(String, QtyOfUsage)> {
-    // let kinds: BTreeSet<String> = rsrcs.iter().map(|v| v.kind.clone()).collect();
-    // dbg!(kinds);
-
     // Note: The `&` is significant here, `GroupBy` is iterable
     // only by reference. You can also call `.into_iter()` explicitly.
     let mut out = vec![];
     for (key, group) in rsrcs.into_iter().map(|e| (e.kind.clone(), e)).into_group_map() {
         // Check that the sum of each group is +/- 4.
-        dbg!(&key);
         out.push((key, sum_by_usage(&group)));
     }
     // let kg = &rsrcs.into_iter().group_by(|v| v.kind);
@@ -141,7 +138,7 @@ fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>) -> Result
     Ok(())
 }
 fn main() -> Result<(),Error> {
-    std::env::set_var("RUST_LOG", "info,kube=trace");
+    // std::env::set_var("RUST_LOG", "info,kube=trace");
     env_logger::init();
     let config = config::load_kube_config().expect("failed to load kubeconfig");
     let client = APIClient::new(config);
@@ -150,12 +147,9 @@ fn main() -> Result<(),Error> {
     collect_from_nodes(client.clone(), &mut resources)?;
     collect_from_pods(client.clone(), &mut resources)?;
 
-    // Collect consumers: pod
-    //dbg!(&consumers);
     let res = make_kind_x_usage(&resources);
     // display_with_tabwriter(&res);
     display_with_prettytable(&res);
-    // dbg!(&res);
     Ok(())
 }
 
@@ -191,9 +185,9 @@ fn display_with_prettytable(data: &[(String, QtyOfUsage)]) {
         table.add_row(row![
             k,
             r-> &format!("{}", qtys.requested),
-            r-> &format!("{:3}", qtys.requested.calc_percentage(&qtys.allocatable)),
+            r-> &format!("{:3.0}", qtys.requested.calc_percentage(&qtys.allocatable)),
             r-> &format!("{}", qtys.limit),
-            r-> &format!("{:3}", qtys.limit.calc_percentage(&qtys.allocatable)),
+            r-> &format!("{:3.0}", qtys.limit.calc_percentage(&qtys.allocatable)),
             r-> &format!("{}", qtys.allocatable),
             r-> &format!("{}", qtys.calc_free()),
         ]);
