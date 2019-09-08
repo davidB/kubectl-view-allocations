@@ -1,11 +1,7 @@
 mod qty;
-// use serde_json::json;
-// use log::{info};
 use env_logger;
 use failure::Error;
 use qty::Qty;
-// use std::collections::HashMap;
-use std::collections::BTreeSet;
 use std::str::FromStr;
 use itertools::Itertools;
 
@@ -80,19 +76,12 @@ fn make_kind_x_usage(rsrcs: &[Resource]) -> Vec<(String, QtyOfUsage)> {
     }
     // let kg = &rsrcs.into_iter().group_by(|v| v.kind);
     // kg.into_iter().map(|(key, group)|  ).collect()
+    out.sort_by_key(|i| i.0.clone());
     out
 }
-fn main() -> Result<(),Error> {
-    std::env::set_var("RUST_LOG", "info,kube=trace");
-    env_logger::init();
-    let config = config::load_kube_config().expect("failed to load kubeconfig");
-    let client = APIClient::new(config);
 
-    let mut resources: Vec<Resource> = vec![];
-
-    // Collect providers: node
-
-    let api_nodes = Api::v1Node(client.clone());//.within("default");
+fn collect_from_nodes(client: APIClient, resources: &mut Vec<Resource>) -> Result<(), Error> {
+    let api_nodes = Api::v1Node(client);//.within("default");
     let nodes = api_nodes.list(&ListParams::default())?;
     for node in nodes.items {
         let location = Location {
@@ -110,9 +99,11 @@ fn main() -> Result<(),Error> {
             }
         }
     }
+    Ok(())
+}
 
-    // Collect consumers: pod
-    let api_pods = Api::v1Pod(client.clone());//.within("default");
+fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>) -> Result<(), Error> {
+    let api_pods = Api::v1Pod(client);//.within("default");
     let pods = api_pods.list(&ListParams::default())?;
     for pod in pods.items {
         let node_name = pod.status.and_then(|v| v.nominated_node_name).or(pod.spec.node_name);
@@ -147,6 +138,19 @@ fn main() -> Result<(),Error> {
             }
         }
     }
+    Ok(())
+}
+fn main() -> Result<(),Error> {
+    std::env::set_var("RUST_LOG", "info,kube=trace");
+    env_logger::init();
+    let config = config::load_kube_config().expect("failed to load kubeconfig");
+    let client = APIClient::new(config);
+
+    let mut resources: Vec<Resource> = vec![];
+    collect_from_nodes(client.clone(), &mut resources)?;
+    collect_from_pods(client.clone(), &mut resources)?;
+
+    // Collect consumers: pod
     //dbg!(&consumers);
     let res = make_kind_x_usage(&resources);
     // display_with_tabwriter(&res);
