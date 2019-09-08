@@ -1,14 +1,14 @@
 [package]
-name = "kubectl-show-resources"
+name = "kubectl-view-allocations"
 version = "0.1.0-dev"
 authors = ["David Bernard"]
 edition = "2018"
-description = "kubectl plugin to list resources requested and limit"
+description = "kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...)"
 readme = "README.md"
 license = "CC0-1.0"
-#keywords = [""]
-#repository = "https://github.com/davidB/kubectl-show-resources"
-#homepage = "https://github.com/davidB/kubectl-show-resources"
+keywords = ["kubectl", "k8s"]
+repository = "https://github.com/davidB/kubectl-view-allocations"
+homepage = "https://github.com/davidB/kubectl-view-allocations"
 exclude = ["/azure-pipelines.yml", "/docs/**", "/scripts", ".gitignore", "/tests/**"]
 
 [dependencies]
