@@ -12,8 +12,8 @@ homepage = "https://github.com/davidB/kubectl-view-allocations"
 exclude = ["/azure-pipelines.yml", "/docs/**", "/scripts", ".gitignore", "/tests/**"]
 
 [dependencies]
-kube = { version = "0.15.1", features = ["openapi"] }
-k8s-openapi = { version = "0.5.0", features = ["v1_15"] }
+kube = { version = "0.16.1", features = ["openapi"], path="../kube-rs" }
+k8s-openapi = { version = "0.5.1", features = ["v1_15"] }
 log = "0.4.8"
 env_logger = "0.6.2"
 failure = "0.1.5"
