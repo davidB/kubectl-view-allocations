@@ -1,5 +1,5 @@
 mod qty;
-mod human_format;
+// mod human_format;
 use env_logger;
 use failure::Error;
 use qty::Qty;
@@ -184,12 +184,12 @@ fn display_with_prettytable(data: &[(String, QtyOfUsage)]) {
     for (k, qtys) in data {
         table.add_row(row![
             k,
-            r-> &format!("{}", qtys.requested),
+            r-> &format!("{}", qtys.requested.adjust_scale()),
             r-> &format!("{:3.0}", qtys.requested.calc_percentage(&qtys.allocatable)),
-            r-> &format!("{}", qtys.limit),
+            r-> &format!("{}", qtys.limit.adjust_scale()),
             r-> &format!("{:3.0}", qtys.limit.calc_percentage(&qtys.allocatable)),
-            r-> &format!("{}", qtys.allocatable),
-            r-> &format!("{}", qtys.calc_free()),
+            r-> &format!("{}", qtys.allocatable.adjust_scale()),
+            r-> &format!("{}", qtys.calc_free().adjust_scale()),
         ]);
     }
 
