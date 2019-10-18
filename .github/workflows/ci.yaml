@@ -22,9 +22,9 @@ jobs:
           - imageName: 'macOS-10.14'
             target: x86_64-apple-darwin
             profile: mac
-          - imageName: 'windows-2019'
-            target: x86_64-pc-windows-msvc
-            profile: windows
+          # - imageName: 'windows-2019'
+          #   target: x86_64-pc-windows-msvc
+          #   profile: windows
 
     steps:
     - uses: actions-rs/toolchain@v1
