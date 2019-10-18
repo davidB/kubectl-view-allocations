@@ -85,7 +85,7 @@ impl Qty {
 
     pub fn adjust_scale(&self) -> Qty {
         let value = f64::from(self);
-        let scale = SCALES.iter().filter(|s| s.base == self.scale.base || s.base == 0)
+        let scale = SCALES.iter().filter(|s| s.base == self.scale.base || self.scale.base == 0)
             .find(|s| f64::from(*s) <= value)
             ;
         match scale {
@@ -113,7 +113,7 @@ impl FromStr for Qty {
 
 impl std::fmt::Display for Qty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.value, self.scale.label)
+        write!(f, "{}{}", self.value, self.scale.label)
     }
 }
 
@@ -197,6 +197,7 @@ mod tests {
 
     #[test]
     fn expectation_ok_for_adjust_scale() -> Result<(), Box<dyn std::error::Error>> {
+        //assert_that!(Qty { value: 929091584, scale: Scale { label: "", base: 0, pow: 0 } }.adjust_scale()).is_equal_to(Qty { value: 886, scale: Scale { label: "Mi", base: 10, pow: 6 } });
         let cases = vec![
             ("1k", "1k"),
             ("10k", "10k"),
@@ -209,9 +210,13 @@ mod tests {
             ("100Ki", "100Ki"),
             ("1000Ki", "1000Ki"),
             ("1024Ki", "1Mi"),
+            ("25641877504", "25G"),
+            ("1000m", "1"),
+            ("100m", "100m"),
+            ("1m", "1m"),
         ];
         for (input, expected) in cases {
-            assert_that!(&Qty::from_str(input)?.adjust_scale()).is_equal_to(&Qty::from_str(expected)?);
+            assert_that!(format!("{}", &Qty::from_str(input)?.adjust_scale())).is_equal_to(expected.to_string());
         }
         Ok(())
     }
