@@ -64,29 +64,33 @@ fn sum_by_usage<'a>(rsrcs: &[&Resource]) -> QtyOfUsage {
     })
 }
 
-fn extract_kind(e: &Resource) -> String {
-    e.kind.clone()
+fn extract_kind(e: &Resource) -> Option<String> {
+    Some(e.kind.clone())
 }
 
-fn extract_node_name(e: &Resource) -> String {
-    e.location.node_name.clone().unwrap_or("".to_string())
+fn extract_node_name(e: &Resource) -> Option<String> {
+    e.location.node_name.clone()
+}
+
+fn extract_pod_name(e: &Resource) -> Option<String> {
+    e.location.pod_name.clone()
 }
 
 fn make_kind_x_usage(rsrcs: &[Resource]) -> Vec<(Vec<String>, QtyOfUsage)> {
-    let group_by_fct: Vec<Box<dyn Fn(&Resource) -> String>> = vec![Box::new(extract_kind), Box::new(extract_node_name)];
+    let group_by_fct: Vec<Box<dyn Fn(&Resource) -> Option<String>>> = vec![Box::new(extract_kind), Box::new(extract_node_name), Box::new(extract_pod_name)];
     let mut out = make_group_x_usage(&(rsrcs.iter().collect::<Vec<_>>()), &vec![], &group_by_fct, 0);
     out.sort_by_key(|i| i.0.clone());
     out
 }
 
 fn make_group_x_usage<F>(rsrcs: &[&Resource], prefix: &[String], group_by_fct: &[F], group_by_depth: usize) -> Vec<(Vec<String>, QtyOfUsage)>
-where F: Fn(&Resource) -> String,
+where F: Fn(&Resource) -> Option<String>,
 {
     // Note: The `&` is significant here, `GroupBy` is iterable
     // only by reference. You can also call `.into_iter()` explicitly.
     let mut out = vec![];
     if let Some(group_by) = group_by_fct.get(group_by_depth) {
-        for (key, group) in rsrcs.iter().map(|e| (group_by(e), *e)).into_group_map() {
+        for (key, group) in rsrcs.iter().filter_map(|e| group_by(e).map(|k| (k, *e))).into_group_map() {
             let mut key_full = prefix.to_vec();
             key_full.push(key);
             // Check that the sum of each group is +/- 4.
@@ -196,7 +200,7 @@ fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)]) {
     });
     for ((k, qtys), prefix) in data.iter().zip(prefixes.iter()) {
         table.add_row(row![
-            &format!("{} {:?}", prefix, k.last().map(|x| x.as_str()).unwrap_or("???")),
+            &format!("{} {}", prefix, k.last().map(|x| x.as_str()).unwrap_or("???")),
             r-> &format!("{}", qtys.requested.adjust_scale()),
             r-> &format!("{:3.0}", qtys.requested.calc_percentage(&qtys.allocatable)),
             r-> &format!("{}", qtys.limit.adjust_scale()),
