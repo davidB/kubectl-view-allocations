@@ -1,4 +1,5 @@
 mod qty;
+mod tree;
 // mod human_format;
 use env_logger;
 use failure::Error;
@@ -63,17 +64,39 @@ fn sum_by_usage<'a>(rsrcs: &[&Resource]) -> QtyOfUsage {
     })
 }
 
-fn make_kind_x_usage(rsrcs: &[Resource]) -> Vec<(String, QtyOfUsage)> {
+fn extract_kind(e: &Resource) -> String {
+    e.kind.clone()
+}
+
+fn extract_node_name(e: &Resource) -> String {
+    e.location.node_name.clone().unwrap_or("".to_string())
+}
+
+fn make_kind_x_usage(rsrcs: &[Resource]) -> Vec<(Vec<String>, QtyOfUsage)> {
+    let group_by_fct: Vec<Box<dyn Fn(&Resource) -> String>> = vec![Box::new(extract_kind), Box::new(extract_node_name)];
+    let mut out = make_group_x_usage(&(rsrcs.iter().collect::<Vec<_>>()), &vec![], &group_by_fct, 0);
+    out.sort_by_key(|i| i.0.clone());
+    out
+}
+
+fn make_group_x_usage<F>(rsrcs: &[&Resource], prefix: &[String], group_by_fct: &[F], group_by_depth: usize) -> Vec<(Vec<String>, QtyOfUsage)>
+where F: Fn(&Resource) -> String,
+{
     // Note: The `&` is significant here, `GroupBy` is iterable
     // only by reference. You can also call `.into_iter()` explicitly.
     let mut out = vec![];
-    for (key, group) in rsrcs.into_iter().map(|e| (e.kind.clone(), e)).into_group_map() {
-        // Check that the sum of each group is +/- 4.
-        out.push((key, sum_by_usage(&group)));
+    if let Some(group_by) = group_by_fct.get(group_by_depth) {
+        for (key, group) in rsrcs.iter().map(|e| (group_by(e), *e)).into_group_map() {
+            let mut key_full = prefix.to_vec();
+            key_full.push(key);
+            // Check that the sum of each group is +/- 4.
+            let children = make_group_x_usage(&group, &key_full, group_by_fct, group_by_depth + 1);
+            out.push((key_full, sum_by_usage(&group)));
+            out.extend(children);
+        }
     }
     // let kg = &rsrcs.into_iter().group_by(|v| v.kind);
     // kg.into_iter().map(|(key, group)|  ).collect()
-    out.sort_by_key(|i| i.0.clone());
     out
 }
 
@@ -153,19 +176,7 @@ fn main() -> Result<(),Error> {
     Ok(())
 }
 
-// fn display_with_tabwriter(data: &[(String, QtyOfUsage)]) {
-//     use tabwriter::TabWriter;
-//     use std::io::Write;
-//     let mut tw = TabWriter::new(vec![]);
-//     tw.write(b"\tRequested\tLimit\tAllocatable\n")?;
-//     for (k, qtys) in data {
-//         tw.write_fmt(format_args!("{}\t{}\t{}\t{}\n", k, qtys.requested, qtys.limit, qtys.allocatable))?;
-//     }
-//     tw.flush()?;
-//     println!("{}", String::from_utf8(tw.into_inner()?)?);
-// }
-
-fn display_with_prettytable(data: &[(String, QtyOfUsage)]) {
+fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)]) {
     use prettytable::{Table, row, cell, format};
     // Create the table
     let mut table = Table::new();
@@ -180,10 +191,12 @@ fn display_with_prettytable(data: &[(String, QtyOfUsage)]) {
     .build();
     table.set_format(format);
     table.set_titles(row![bl->"Resource", br->"Requested", br->"%Requested", br->"Limit",  br->"%Limit", br->"Allocatable", br->"Free"]);
-
-    for (k, qtys) in data {
+    let prefixes = tree::provide_prefix(data, |parent, item|{
+        parent.0.len() + 1 == item.0.len()
+    });
+    for ((k, qtys), prefix) in data.iter().zip(prefixes.iter()) {
         table.add_row(row![
-            k,
+            &format!("{} {:?}", prefix, k.last().map(|x| x.as_str()).unwrap_or("???")),
             r-> &format!("{}", qtys.requested.adjust_scale()),
             r-> &format!("{:3.0}", qtys.requested.calc_percentage(&qtys.allocatable)),
             r-> &format!("{}", qtys.limit.adjust_scale()),
