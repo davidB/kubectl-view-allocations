@@ -6,6 +6,8 @@ use failure::Error;
 use qty::Qty;
 use std::str::FromStr;
 use itertools::Itertools;
+use structopt::StructOpt;
+use structopt::clap::AppSettings;
 
 use kube::{
     api::{Api, ListParams},
@@ -164,7 +166,23 @@ fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>) -> Result
     }
     Ok(())
 }
+
+#[derive(StructOpt, Debug)]
+#[structopt(
+    global_settings(&[AppSettings::ColoredHelp, AppSettings::VersionlessSubcommands]),
+    author = env!("CARGO_PKG_HOMEPAGE"), about
+)]
+struct CliOpts {
+    /// Show line with zero requested and zero limit and zero allocatable
+    #[structopt(short = "z", long)]
+    show_zero: bool,
+
+}
+
 fn main() -> Result<(),Error> {
+    let cli_opts = CliOpts::from_args();
+    //dbg!(cli_opts);
+
     // std::env::set_var("RUST_LOG", "info,kube=trace");
     env_logger::init();
     let config = config::load_kube_config().expect("failed to load kubeconfig");
@@ -176,7 +194,7 @@ fn main() -> Result<(),Error> {
 
     let res = make_kind_x_usage(&resources);
     // display_with_tabwriter(&res);
-    display_with_prettytable(&res, false);
+    display_with_prettytable(&res, !cli_opts.show_zero);
     Ok(())
 }
 

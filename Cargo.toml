@@ -22,5 +22,7 @@ itertools = "0.8.0"
 # tabwriter = "1.1.0"
 prettytable-rs = { version = "0.8.0", default-features = false}
 # human_format = "1.0.2" # vendored due to println and bugs
+structopt = "0.3.3"
+
 [dev-dependencies]
 spectral = "0.6.0"
