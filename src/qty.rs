@@ -75,6 +75,10 @@ impl From<&Qty> for f64 {
 }
 
 impl Qty {
+    pub fn is_zero(&self) -> bool {
+        self.value == 0
+    }
+
     pub fn calc_percentage(&self, base100: &Self) -> f64 {
         if base100.value != 0 {
             f64::from(self) * 100f64 / f64::from(base100)

@@ -176,12 +176,12 @@ fn main() -> Result<(),Error> {
 
     let res = make_kind_x_usage(&resources);
     // display_with_tabwriter(&res);
-    display_with_prettytable(&res);
+    display_with_prettytable(&res, false);
     Ok(())
 }
 
-fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)]) {
-    use prettytable::{Table, row, cell, format};
+fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)], filter_full_zero: bool) {
+    use prettytable::{Table, row, cell, format, Cell, Row};
     // Create the table
     let mut table = Table::new();
     let format = format::FormatBuilder::new()
@@ -195,19 +195,39 @@ fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)]) {
     .build();
     table.set_format(format);
     table.set_titles(row![bl->"Resource", br->"Requested", br->"%Requested", br->"Limit",  br->"%Limit", br->"Allocatable", br->"Free"]);
-    let prefixes = tree::provide_prefix(data, |parent, item|{
+    let data2 = data.iter().filter(|d| !filter_full_zero || !d.1.requested.is_zero() || !d.1.limit.is_zero() || !d.1.allocatable.is_zero()).collect::<Vec<_>>();
+    let prefixes = tree::provide_prefix(&data2, |parent, item|{
         parent.0.len() + 1 == item.0.len()
     });
-    for ((k, qtys), prefix) in data.iter().zip(prefixes.iter()) {
-        table.add_row(row![
+
+    for ((k, qtys), prefix) in data2.iter().zip(prefixes.iter()) {
+        let row = if qtys.allocatable.is_zero() {
+            let style = if qtys.requested.is_zero() || qtys.limit.is_zero() {
+                "rFr"
+            } else {
+                "r"
+            };
+            Row::new(vec![
+                Cell::new(&format!("{} {}", prefix, k.last().map(|x| x.as_str()).unwrap_or("???"))),
+                Cell::new(&format!("{}", qtys.requested.adjust_scale())).style_spec(style),
+                Cell::new("").style_spec(style),
+                Cell::new(&format!("{}", qtys.limit.adjust_scale())).style_spec(style),
+                Cell::new("").style_spec(style),
+                Cell::new("").style_spec(style),
+                Cell::new("").style_spec(style),
+            ])
+        } else {
+            row![
             &format!("{} {}", prefix, k.last().map(|x| x.as_str()).unwrap_or("???")),
             r-> &format!("{}", qtys.requested.adjust_scale()),
-            r-> &format!("{:3.0}", qtys.requested.calc_percentage(&qtys.allocatable)),
+                r-> &format!("{:4.0}%", qtys.requested.calc_percentage(&qtys.allocatable)),
             r-> &format!("{}", qtys.limit.adjust_scale()),
-            r-> &format!("{:3.0}", qtys.limit.calc_percentage(&qtys.allocatable)),
+                r-> &format!("{:4.0}%", qtys.limit.calc_percentage(&qtys.allocatable)),
             r-> &format!("{}", qtys.allocatable.adjust_scale()),
             r-> &format!("{}", qtys.calc_free().adjust_scale()),
-        ]);
+            ]
+        };
+        table.add_row(row);
     }
 
     // Print the table to stdout
