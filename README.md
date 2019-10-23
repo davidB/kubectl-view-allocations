@@ -17,7 +17,7 @@ kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, all
 ### via cargo
 
 ```sh
-cargo install kubectl-view-allocation
+cargo install kubectl-view-allocations
 ```
 
 ## Usage
