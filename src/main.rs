@@ -193,7 +193,6 @@ fn main() -> Result<(),Error> {
     collect_from_pods(client.clone(), &mut resources)?;
 
     let res = make_kind_x_usage(&resources);
-    // display_with_tabwriter(&res);
     display_with_prettytable(&res, !cli_opts.show_zero);
     Ok(())
 }
