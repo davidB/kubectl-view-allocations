@@ -106,7 +106,11 @@ where F: Fn(&Resource) -> Option<String>,
     out
 }
 
-fn collect_from_nodes(client: APIClient, resources: &mut Vec<Resource>) -> Result<(), Error> {
+fn accept_resource(name: &str, resource_filter: &Vec<String>) -> bool {
+    resource_filter.is_empty() || resource_filter.iter().any(|x| name.contains(x))
+}
+
+fn collect_from_nodes(client: APIClient, resources: &mut Vec<Resource>, resource_names: &Vec<String>) -> Result<(), Error> {
     let api_nodes = Api::v1Node(client);//.within("default");
     let nodes = api_nodes.list(&ListParams::default())?;
     for node in nodes.items {
@@ -115,7 +119,7 @@ fn collect_from_nodes(client: APIClient, resources: &mut Vec<Resource>) -> Resul
             ..Location::default()
         };
         if let Some(als) = node.status.and_then(|v| v.allocatable) {
-            for a in als {
+            for a in als.into_iter().filter(|a| accept_resource(&a.0, resource_names)) {
                 resources.push(Resource{
                     kind: a.0,
                     usage: ResourceUsage::Allocatable,
@@ -128,7 +132,7 @@ fn collect_from_nodes(client: APIClient, resources: &mut Vec<Resource>) -> Resul
     Ok(())
 }
 
-fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>) -> Result<(), Error> {
+fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>, resource_names: &Vec<String>) -> Result<(), Error> {
     let api_pods = Api::v1Pod(client);//.within("default");
     let pods = api_pods.list(&ListParams::default())?;
     for pod in pods.items {
@@ -142,7 +146,7 @@ fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>) -> Result
             };
             for requirements in container.resources {
                 if let Some(r) = requirements.requests {
-                    for request in r {
+                    for request in r.into_iter().filter(|a| accept_resource(&a.0, resource_names)) {
                         resources.push(Resource{
                             kind: request.0,
                             usage: ResourceUsage::Requested,
@@ -152,7 +156,7 @@ fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>) -> Result
                     }
                 }
                 if let Some(l) = requirements.limits {
-                    for limit in l {
+                    for limit in l.into_iter().filter(|a| accept_resource(&a.0, resource_names)) {
                         resources.push(Resource{
                             kind: limit.0,
                             usage: ResourceUsage::Limit,
@@ -173,15 +177,18 @@ fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>) -> Result
     author = env!("CARGO_PKG_HOMEPAGE"), about
 )]
 struct CliOpts {
-    /// Show line with zero requested and zero limit and zero allocatable
+    /// Show lines with zero requested and zero limit and zero allocatable
     #[structopt(short = "z", long)]
     show_zero: bool,
 
+    /// Filter resources shown by name(s), by default all resources are listed
+    #[structopt(short, long)]
+    resource_name: Vec<String>,
 }
 
 fn main() -> Result<(),Error> {
     let cli_opts = CliOpts::from_args();
-    //dbg!(cli_opts);
+    // dbg!(&cli_opts);
 
     // std::env::set_var("RUST_LOG", "info,kube=trace");
     env_logger::init();
@@ -189,11 +196,11 @@ fn main() -> Result<(),Error> {
     let client = APIClient::new(config);
 
     let mut resources: Vec<Resource> = vec![];
-    collect_from_nodes(client.clone(), &mut resources)?;
-    collect_from_pods(client.clone(), &mut resources)?;
+    collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name)?;
+    collect_from_pods(client.clone(), &mut resources, &cli_opts.resource_name)?;
 
     let res = make_kind_x_usage(&resources);
-    display_with_prettytable(&res, !cli_opts.show_zero);
+    display_with_prettytable(&res, !&cli_opts.show_zero);
     Ok(())
 }
 
@@ -235,13 +242,13 @@ fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)], filter_full_zero
             ])
         } else {
             row![
-            &format!("{} {}", prefix, k.last().map(|x| x.as_str()).unwrap_or("???")),
-            r-> &format!("{}", qtys.requested.adjust_scale()),
+                &format!("{} {}", prefix, k.last().map(|x| x.as_str()).unwrap_or("???")),
+                r-> &format!("{}", qtys.requested.adjust_scale()),
                 r-> &format!("{:4.0}%", qtys.requested.calc_percentage(&qtys.allocatable)),
-            r-> &format!("{}", qtys.limit.adjust_scale()),
+                r-> &format!("{}", qtys.limit.adjust_scale()),
                 r-> &format!("{:4.0}%", qtys.limit.calc_percentage(&qtys.allocatable)),
-            r-> &format!("{}", qtys.allocatable.adjust_scale()),
-            r-> &format!("{}", qtys.calc_free().adjust_scale()),
+                r-> &format!("{}", qtys.allocatable.adjust_scale()),
+                r-> &format!("{}", qtys.calc_free().adjust_scale()),
             ]
         };
         table.add_row(row);
@@ -249,4 +256,19 @@ fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)], filter_full_zero
 
     // Print the table to stdout
     table.printstd();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_accept_resource() {
+        assert_eq!(accept_resource("cpu", &vec![]), true);
+        assert_eq!(accept_resource("cpu", &vec!["c".to_string()]), true);
+        assert_eq!(accept_resource("cpu", &vec!["cpu".to_string()]), true);
+        assert_eq!(accept_resource("cpu", &vec!["cpu3".to_string()]), false);
+        assert_eq!(accept_resource("gpu", &vec!["gpu".to_string()]), true);
+        assert_eq!(accept_resource("nvidia.com/gpu", &vec!["gpu".to_string()]), true);
+    }
 }
