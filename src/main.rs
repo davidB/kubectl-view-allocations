@@ -132,8 +132,12 @@ fn collect_from_nodes(client: APIClient, resources: &mut Vec<Resource>, resource
     Ok(())
 }
 
-fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>, resource_names: &Vec<String>) -> Result<(), Error> {
-    let api_pods = Api::v1Pod(client);//.within("default");
+fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>, resource_names: &Vec<String>, namespace: &Option<String>) -> Result<(), Error> {
+    let api_pods = if let Some(ns) = namespace {
+        Api::v1Pod(client).within(ns)
+    } else {
+        Api::v1Pod(client)
+    };
     let pods = api_pods.list(&ListParams::default())?;
     for pod in pods.items {
         let node_name = pod.status.and_then(|v| v.nominated_node_name).or(pod.spec.node_name);
@@ -177,6 +181,10 @@ fn collect_from_pods(client: APIClient, resources: &mut Vec<Resource>, resource_
     author = env!("CARGO_PKG_HOMEPAGE"), about
 )]
 struct CliOpts {
+    /// Show only pods from this namespace
+    #[structopt(short, long)]
+    namespace: Option<String>,
+
     /// Show lines with zero requested and zero limit and zero allocatable
     #[structopt(short = "z", long)]
     show_zero: bool,
@@ -197,7 +205,7 @@ fn main() -> Result<(),Error> {
 
     let mut resources: Vec<Resource> = vec![];
     collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name)?;
-    collect_from_pods(client.clone(), &mut resources, &cli_opts.resource_name)?;
+    collect_from_pods(client.clone(), &mut resources, &cli_opts.resource_name, &cli_opts.namespace)?;
 
     let res = make_kind_x_usage(&resources);
     display_with_prettytable(&res, !&cli_opts.show_zero);
