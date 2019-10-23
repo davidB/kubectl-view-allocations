@@ -2,6 +2,7 @@ mod qty;
 mod tree;
 // mod human_format;
 use env_logger;
+use log::{error};
 use failure::Error;
 use qty::Qty;
 use std::str::FromStr;
@@ -194,12 +195,19 @@ struct CliOpts {
     resource_name: Vec<String>,
 }
 
-fn main() -> Result<(),Error> {
+fn main() {
+    // std::env::set_var("RUST_LOG", "info,kube=trace");
+    env_logger::init();
     let cli_opts = CliOpts::from_args();
     // dbg!(&cli_opts);
 
-    // std::env::set_var("RUST_LOG", "info,kube=trace");
-    env_logger::init();
+    let r = do_main(&cli_opts);
+    if let Err(e) = r {
+        error!("failed \ncli: {:?}\nerror: {:?}", &cli_opts, &e);
+    }
+}
+
+fn do_main(cli_opts: &CliOpts) -> Result<(),Error> {
     let config = config::load_kube_config().expect("failed to load kubeconfig");
     let client = APIClient::new(config);
 

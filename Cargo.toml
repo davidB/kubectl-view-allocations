@@ -9,7 +9,7 @@ license = "CC0-1.0"
 keywords = ["kubectl", "k8s"]
 repository = "https://github.com/davidB/kubectl-view-allocations"
 homepage = "https://github.com/davidB/kubectl-view-allocations"
-exclude = ["/azure-pipelines.yml", "/docs/**", "/scripts", ".gitignore", "/tests/**"]
+exclude = ["/.github", "/.dependabot", ".gitignore"]
 
 [dependencies]
 kube = { version = "0.17.0", features = ["openapi"] }
@@ -25,3 +25,9 @@ structopt = "0.3.3"
 
 [dev-dependencies]
 spectral = "0.6.0"
+
+[profile.release]
+lto = true
+panic = 'abort'
+opt-level = 'z'  # Optimize for size.
+codegen-units = 1
