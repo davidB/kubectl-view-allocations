@@ -57,7 +57,7 @@ OPTIONS:
   │  └─ aaaa-1571819245-5ql82                       1                  1
   ├─ node-gpu5                                      2        100%      2    100%            2     0
   │  ├─ bbbb-1571738839-dfkhn                       1                  1
-  │  └─ bbbb-atamborrino-1571738888-52c4w           1                  1
+  │  └─ bbbb-1571738888-52c4w                       1                  1
   └─ sail-gpu6                                      2        100%      2    100%            2     0
      ├─ bbbb-1571738688-vlxng                       1                  1
      └─ cccc-1571745684-7k6bn                       1                  1
