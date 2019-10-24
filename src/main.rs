@@ -60,7 +60,7 @@ impl QtyOfUsage {
         }
     }
 }
-fn sum_by_usage<'a>(rsrcs: &[&Resource]) -> QtyOfUsage {
+fn sum_by_usage(rsrcs: &[&Resource]) -> QtyOfUsage {
     rsrcs.iter().fold(QtyOfUsage::default(), |mut acc, v| {
         match &v.usage {
             ResourceUsage::Limit => acc.limit += &v.quantity,
@@ -89,12 +89,7 @@ fn make_kind_x_usage(rsrcs: &[Resource]) -> Vec<(Vec<String>, QtyOfUsage)> {
         Box::new(extract_node_name),
         Box::new(extract_pod_name),
     ];
-    let mut out = make_group_x_usage(
-        &(rsrcs.iter().collect::<Vec<_>>()),
-        &vec![],
-        &group_by_fct,
-        0,
-    );
+    let mut out = make_group_x_usage(&(rsrcs.iter().collect::<Vec<_>>()), &[], &group_by_fct, 0);
     out.sort_by_key(|i| i.0.clone());
     out
 }
@@ -130,14 +125,14 @@ where
     out
 }
 
-fn accept_resource(name: &str, resource_filter: &Vec<String>) -> bool {
+fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
     resource_filter.is_empty() || resource_filter.iter().any(|x| name.contains(x))
 }
 
 fn collect_from_nodes(
     client: APIClient,
     resources: &mut Vec<Resource>,
-    resource_names: &Vec<String>,
+    resource_names: &[String],
 ) -> Result<(), Error> {
     let api_nodes = Api::v1Node(client); //.within("default");
     let nodes = api_nodes.list(&ListParams::default())?;
@@ -166,7 +161,7 @@ fn collect_from_nodes(
 fn collect_from_pods(
     client: APIClient,
     resources: &mut Vec<Resource>,
-    resource_names: &Vec<String>,
+    resource_names: &[String],
     namespace: &Option<String>,
 ) -> Result<(), Error> {
     let api_pods = if let Some(ns) = namespace {

@@ -36,7 +36,7 @@ impl FromStr for Scale {
             .iter()
             .find(|v| v.label == s)
             .cloned()
-            .ok_or(format_err!("scale not found"))
+            .ok_or_else(|| format_err!("scale not found"))
     }
 }
 
@@ -45,7 +45,7 @@ impl From<&Scale> for f64 {
         if v.pow == 0 || v.base == 0 {
             1.0
         } else {
-            (v.base as f64).powf(v.pow as f64)
+            f64::from(v.base).powf(f64::from(v.pow))
         }
     }
 }
@@ -59,7 +59,7 @@ impl PartialOrd for Scale {
             Some(Ordering::Greater)
         } else if v1 < v2 {
             Some(Ordering::Less)
-        } else if v1 == v2 {
+        } else if (v1 - v2).abs() < std::f64::EPSILON {
             Some(Ordering::Equal)
         } else {
             None
@@ -136,7 +136,7 @@ impl PartialOrd for Qty {
             Some(Ordering::Greater)
         } else if v1 < v2 {
             Some(Ordering::Less)
-        } else if v1 == v2 {
+        } else if (v1 - v2).abs() < std::f64::EPSILON {
             Some(Ordering::Equal)
         } else {
             None
