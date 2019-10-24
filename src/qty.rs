@@ -2,11 +2,11 @@
 // see [Managing Compute Resources for Containers - Kubernetes](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
 //TODO rewrite to support exponent, ... see [apimachinery/quantity.go at master · kubernetes/apimachinery](https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go)
 
-use std::str::FromStr;
+use failure::{format_err, Error};
 use std::cmp::Ordering;
-use failure::{Error,format_err};
+use std::str::FromStr;
 
-#[derive(Debug,Clone,Eq,PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 struct Scale {
     label: &'static str,
     base: u32,
@@ -14,6 +14,7 @@ struct Scale {
 }
 
 // should be sorted in DESC
+#[rustfmt::skip]
 static SCALES: [Scale;11] = [
     Scale{ label:"Pi", base: 2, pow: 50},
     Scale{ label:"Ti", base: 2, pow: 40},
@@ -31,7 +32,11 @@ static SCALES: [Scale;11] = [
 impl FromStr for Scale {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        SCALES.iter().find(|v| v.label == s).cloned().ok_or(format_err!("scale not found"))
+        SCALES
+            .iter()
+            .find(|v| v.label == s)
+            .cloned()
+            .ok_or(format_err!("scale not found"))
     }
 }
 
@@ -62,7 +67,7 @@ impl PartialOrd for Scale {
     }
 }
 
-#[derive(Debug,Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Qty {
     value: i64,
     scale: Scale,
@@ -89,11 +94,12 @@ impl Qty {
 
     pub fn adjust_scale(&self) -> Qty {
         let value = f64::from(self);
-        let scale = SCALES.iter().filter(|s| s.base == self.scale.base || self.scale.base == 0)
-            .find(|s| f64::from(*s) <= value)
-            ;
+        let scale = SCALES
+            .iter()
+            .filter(|s| s.base == self.scale.base || self.scale.base == 0)
+            .find(|s| f64::from(*s) <= value);
         match scale {
-            Some(scale) => Qty{
+            Some(scale) => Qty {
                 value: (value / f64::from(scale)) as i64,
                 scale: scale.clone(),
             },
@@ -111,7 +117,7 @@ impl FromStr for Qty {
         };
         let value = i64::from_str(num_str)?;
         let scale = Scale::from_str(scale_str.trim())?;
-        Ok(Qty{value, scale})
+        Ok(Qty { value, scale })
     }
 }
 
@@ -156,9 +162,13 @@ impl std::ops::Add for &Qty {
     fn add(self, other: Self) -> Qty {
         let v1 = f64::from(self);
         let v2 = f64::from(other);
-        Qty{
+        Qty {
             value: (v1 + v2) as i64,
-            scale: Scale{label: "", base: self.scale.base.min(other.scale.base), pow: 0},
+            scale: Scale {
+                label: "",
+                base: self.scale.base.min(other.scale.base),
+                pow: 0,
+            },
         }
     }
 }
@@ -167,9 +177,13 @@ impl<'b> std::ops::AddAssign<&'b Qty> for Qty {
     fn add_assign(&mut self, other: &'b Self) {
         let v1 = f64::from(&*self);
         let v2 = f64::from(other);
-        *self = Qty{
+        *self = Qty {
             value: (v1 + v2) as i64,
-            scale: Scale{label: "", base: self.scale.base.min(other.scale.base), pow: 0},
+            scale: Scale {
+                label: "",
+                base: self.scale.base.min(other.scale.base),
+                pow: 0,
+            },
         };
     }
 }
@@ -180,9 +194,13 @@ impl std::ops::Sub for &Qty {
     fn sub(self, other: Self) -> Qty {
         let v1 = f64::from(self);
         let v2 = f64::from(other);
-        Qty{
+        Qty {
             value: (v1 - v2) as i64,
-            scale: Scale{label: "", base: self.scale.base.min(other.scale.base), pow: 0},
+            scale: Scale {
+                label: "",
+                base: self.scale.base.min(other.scale.base),
+                pow: 0,
+            },
         }
     }
 }
@@ -194,8 +212,16 @@ mod tests {
 
     #[test]
     fn test_to_base() -> Result<(), Box<dyn std::error::Error>> {
-        assert_that!(f64::from(&Qty::from_str("1k")?)).is_close_to(f64::from(&Qty::from_str("1000000m")?), 0.01);
-        assert_that!(Qty::from_str("1Ki")?).is_equal_to(Qty { value: 1, scale: Scale{ label: "Ki", base: 2, pow: 10 } });
+        assert_that!(f64::from(&Qty::from_str("1k")?))
+            .is_close_to(f64::from(&Qty::from_str("1000000m")?), 0.01);
+        assert_that!(Qty::from_str("1Ki")?).is_equal_to(Qty {
+            value: 1,
+            scale: Scale {
+                label: "Ki",
+                base: 2,
+                pow: 10,
+            },
+        });
         Ok(())
     }
 
@@ -220,7 +246,8 @@ mod tests {
             ("1m", "1m"),
         ];
         for (input, expected) in cases {
-            assert_that!(format!("{}", &Qty::from_str(input)?.adjust_scale())).is_equal_to(expected.to_string());
+            assert_that!(format!("{}", &Qty::from_str(input)?.adjust_scale()))
+                .is_equal_to(expected.to_string());
         }
         Ok(())
     }

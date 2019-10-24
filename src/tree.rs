@@ -39,7 +39,7 @@
 //! ```
 //!
 
-#[derive(Debug,Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct TreeNode {
     parent: Option<usize>,
     level: Vec<bool>,
@@ -58,9 +58,17 @@ fn level_to_string(level: &Vec<bool>) -> String {
         for (col, is_last_child) in level.iter().enumerate() {
             let is_last_col = col == last_col;
             let s = if *is_last_child {
-                if !is_last_col { EMPTY } else { EDGE }
+                if !is_last_col {
+                    EMPTY
+                } else {
+                    EDGE
+                }
             } else {
-                if !is_last_col { PIPE } else { BRANCH }
+                if !is_last_col {
+                    PIPE
+                } else {
+                    BRANCH
+                }
             };
             prefix.push_str(s);
         }
@@ -83,13 +91,18 @@ fn write_tree_level_of_children(nodes: &mut Vec<TreeNode>, idx: usize) {
     }
 }
 
-fn make_tree_by_reverse_depth_first<I,F>(items: &[I], is_parent_of: F) -> Vec<TreeNode>
-where F: Fn(&I, &I) -> bool {
+fn make_tree_by_reverse_depth_first<I, F>(items: &[I], is_parent_of: F) -> Vec<TreeNode>
+where
+    F: Fn(&I, &I) -> bool,
+{
     let mut current: Option<usize> = None;
     let mut nodes: Vec<TreeNode> = vec![];
     for (i, item) in items.iter().enumerate() {
         while current.is_some() && !is_parent_of(&items[current.unwrap()], item) {
-            current = nodes.get_mut(current.unwrap()).and_then(|n| n.parent).clone();
+            current = nodes
+                .get_mut(current.unwrap())
+                .and_then(|n| n.parent)
+                .clone();
         }
         let treenode = TreeNode {
             parent: current,
@@ -108,8 +121,9 @@ where F: Fn(&I, &I) -> bool {
 }
 
 // the input order is preserved into output
-pub fn provide_prefix<I,F>(items: &[I], is_parent_of: F) -> Vec<String>
-where F: Fn(&I, &I) -> bool
+pub fn provide_prefix<I, F>(items: &[I], is_parent_of: F) -> Vec<String>
+where
+    F: Fn(&I, &I) -> bool,
 {
     let mut nodes: Vec<TreeNode> = make_tree_by_reverse_depth_first(items, is_parent_of);
     //dbg!(&nodes);
