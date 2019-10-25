@@ -14,6 +14,15 @@ kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, all
 
 ## Install
 
+### via binary
+
+Download from [github's release](https://github.com/davidB/kubectl-view-allocations/releases/latest) or use script
+
+
+```sh
+curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/scripts/getLatest.sh | sh
+```
+
 ### via cargo
 
 ```sh
@@ -61,7 +70,7 @@ OPTIONS:
   ├─ node-gpu5                                      2        100%      2    100%            2     0
   │  ├─ bbbb-1571738839-dfkhn                       1                  1
   │  └─ bbbb-1571738888-52c4w                       1                  1
-  └─ sail-gpu6                                      2        100%      2    100%            2     0
+  └─ node-gpu6                                      2        100%      2    100%            2     0
      ├─ bbbb-1571738688-vlxng                       1                  1
      └─ cccc-1571745684-7k6bn                       1                  1
 ```
