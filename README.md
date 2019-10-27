@@ -10,14 +10,13 @@
 [![Crates.io](https://img.shields.io/crates/d/kubectl-view-allocations.svg)](https://crates.io/crates/kubectl-view-allocations)
 ![GitHub All Releases](https://img.shields.io/github/downloads/davidB/kubectl-view-allocations/total.svg)
 
-kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...).
+`kubectl` plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...).
 
 ## Install
 
 ### via binary
 
 Download from [github's release](https://github.com/davidB/kubectl-view-allocations/releases/latest) or use script
-
 
 ```sh
 curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/scripts/getLatest.sh | sh
@@ -36,7 +35,7 @@ cargo install kubectl-view-allocations
 ```txt
 kubectl-view-allocations -h
 
-kubectl-view-allocations 0.1.0-dev
+kubectl-view-allocations 0.2.2-dev
 https://github.com/davidB/kubectl-view-allocations
 kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...)
 
@@ -49,6 +48,8 @@ FLAGS:
     -V, --version      Prints version information
 
 OPTIONS:
+    -g, --group-by <group-by>...              Group informations (hierarchicaly) (default: -g resource -g node -g pod)
+                                              [possible values: resource, node, pod]
     -n, --namespace <namespace>               Show only pods from this namespace
     -r, --resource-name <resource-name>...    Filter resources shown by name(s), by default all resources are listed
 ```

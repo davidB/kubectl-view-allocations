@@ -7,6 +7,7 @@ use itertools::Itertools;
 use log::error;
 use qty::Qty;
 use std::str::FromStr;
+use structopt::clap::arg_enum;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
@@ -60,49 +61,46 @@ impl QtyOfUsage {
         }
     }
 }
-fn sum_by_usage(rsrcs: &[&Resource]) -> QtyOfUsage {
-    rsrcs.iter().fold(QtyOfUsage::default(), |mut acc, v| {
-        match &v.usage {
-            ResourceUsage::Limit => acc.limit += &v.quantity,
-            ResourceUsage::Requested => acc.requested += &v.quantity,
-            ResourceUsage::Allocatable => acc.allocatable += &v.quantity,
-        };
-        acc
-    })
+
+fn sum_by_usage(rsrcs: &[&Resource]) -> Option<QtyOfUsage> {
+    if rsrcs.len() > 0 {
+        let kind = rsrcs
+            .get(0)
+            .expect("group contains at least 1 element")
+            .kind
+            .clone();
+
+        if rsrcs.iter().all(|i| i.kind == kind) {
+            let sum = rsrcs.iter().fold(QtyOfUsage::default(), |mut acc, v| {
+                match &v.usage {
+                    ResourceUsage::Limit => acc.limit += &v.quantity,
+                    ResourceUsage::Requested => acc.requested += &v.quantity,
+                    ResourceUsage::Allocatable => acc.allocatable += &v.quantity,
+                };
+                acc
+            });
+            Some(sum)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
-fn extract_kind(e: &Resource) -> Option<String> {
-    Some(e.kind.clone())
-}
-
-fn extract_node_name(e: &Resource) -> Option<String> {
-    e.location.node_name.clone()
-}
-
-fn extract_pod_name(e: &Resource) -> Option<String> {
-    e.location.pod_name.clone()
-}
-
-fn make_kind_x_usage(rsrcs: &[Resource]) -> Vec<(Vec<String>, QtyOfUsage)> {
-    let group_by_fct: Vec<Box<dyn Fn(&Resource) -> Option<String>>> = vec![
-        Box::new(extract_kind),
-        Box::new(extract_node_name),
-        Box::new(extract_pod_name),
-    ];
+fn make_usages(rsrcs: &[Resource], group_by: &[GroupBy]) -> Vec<(Vec<String>, Option<QtyOfUsage>)> {
+    let group_by_fct = group_by.iter().map(GroupBy::to_fct).collect::<Vec<_>>();
     let mut out = make_group_x_usage(&(rsrcs.iter().collect::<Vec<_>>()), &[], &group_by_fct, 0);
     out.sort_by_key(|i| i.0.clone());
     out
 }
 
-fn make_group_x_usage<F>(
+fn make_group_x_usage(
     rsrcs: &[&Resource],
     prefix: &[String],
-    group_by_fct: &[F],
+    group_by_fct: &[fn(&Resource) -> Option<String>],
     group_by_depth: usize,
-) -> Vec<(Vec<String>, QtyOfUsage)>
-where
-    F: Fn(&Resource) -> Option<String>,
-{
+) -> Vec<(Vec<String>, Option<QtyOfUsage>)> {
     // Note: The `&` is significant here, `GroupBy` is iterable
     // only by reference. You can also call `.into_iter()` explicitly.
     let mut out = vec![];
@@ -114,7 +112,6 @@ where
         {
             let mut key_full = prefix.to_vec();
             key_full.push(key);
-            // Check that the sum of each group is +/- 4.
             let children = make_group_x_usage(&group, &key_full, group_by_fct, group_by_depth + 1);
             out.push((key_full, sum_by_usage(&group)));
             out.extend(children);
@@ -215,6 +212,44 @@ fn collect_from_pods(
     Ok(())
 }
 
+arg_enum! {
+    #[derive(Debug, Eq, PartialEq)]
+    #[allow(non_camel_case_types)]
+    enum GroupBy {
+        resource,
+        node,
+        pod,
+        namespace,
+    }
+}
+
+impl GroupBy {
+    fn to_fct(&self) -> fn(&Resource) -> Option<String> {
+        match self {
+            Self::resource => Self::extract_kind,
+            Self::node => Self::extract_node_name,
+            Self::pod => Self::extract_pod_name,
+            Self::namespace => Self::extract_namespace,
+        }
+    }
+
+    fn extract_kind(e: &Resource) -> Option<String> {
+        Some(e.kind.clone())
+    }
+
+    fn extract_node_name(e: &Resource) -> Option<String> {
+        e.location.node_name.clone()
+    }
+
+    fn extract_pod_name(e: &Resource) -> Option<String> {
+        e.location.pod_name.clone()
+    }
+
+    fn extract_namespace(e: &Resource) -> Option<String> {
+        e.location.namespace.clone()
+    }
+}
+
 #[derive(StructOpt, Debug)]
 #[structopt(
     global_settings(&[AppSettings::ColoredHelp, AppSettings::VersionlessSubcommands]),
@@ -232,12 +267,26 @@ struct CliOpts {
     /// Filter resources shown by name(s), by default all resources are listed
     #[structopt(short, long)]
     resource_name: Vec<String>,
+
+    /// Group informations hierarchically (default: -g resource -g node -g pod)
+    #[structopt(short, long, possible_values = &GroupBy::variants(), case_insensitive = true)]
+    group_by: Vec<GroupBy>,
 }
 
 fn main() {
     // std::env::set_var("RUST_LOG", "info,kube=trace");
     env_logger::init();
-    let cli_opts = CliOpts::from_args();
+    let mut cli_opts = CliOpts::from_args();
+    //HACK because I didn't find how to default a multiple opts
+    if cli_opts.group_by.is_empty() {
+        cli_opts.group_by.push(GroupBy::resource);
+        cli_opts.group_by.push(GroupBy::node);
+        cli_opts.group_by.push(GroupBy::pod);
+    }
+    if !cli_opts.group_by.contains(&GroupBy::resource) {
+        cli_opts.group_by.insert(0, GroupBy::resource)
+    }
+    cli_opts.group_by.dedup();
     // dbg!(&cli_opts);
 
     let r = do_main(&cli_opts);
@@ -259,12 +308,12 @@ fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
         &cli_opts.namespace,
     )?;
 
-    let res = make_kind_x_usage(&resources);
+    let res = make_usages(&resources, &cli_opts.group_by);
     display_with_prettytable(&res, !&cli_opts.show_zero);
     Ok(())
 }
 
-fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)], filter_full_zero: bool) {
+fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_full_zero: bool) {
     use prettytable::{cell, format, row, Cell, Row, Table};
     // Create the table
     let mut table = Table::new();
@@ -283,42 +332,57 @@ fn display_with_prettytable(data: &[(Vec<String>, QtyOfUsage)], filter_full_zero
         .iter()
         .filter(|d| {
             !filter_full_zero
-                || !d.1.requested.is_zero()
-                || !d.1.limit.is_zero()
-                || !d.1.allocatable.is_zero()
+                || !d
+                    .1
+                    .as_ref()
+                    .map(|x| x.requested.is_zero() && x.limit.is_zero() && x.allocatable.is_zero())
+                    .unwrap_or(false)
         })
         .collect::<Vec<_>>();
     let prefixes = tree::provide_prefix(&data2, |parent, item| parent.0.len() + 1 == item.0.len());
 
-    for ((k, qtys), prefix) in data2.iter().zip(prefixes.iter()) {
-        let row = if qtys.allocatable.is_zero() {
-            let style = if qtys.requested.is_zero() || qtys.limit.is_zero() {
-                "rFr"
+    for ((k, oqtys), prefix) in data2.iter().zip(prefixes.iter()) {
+        let column0 = format!(
+            "{} {}",
+            prefix,
+            k.last().map(|x| x.as_str()).unwrap_or("???")
+        );
+        let row = if let Some(qtys) = oqtys {
+            if qtys.allocatable.is_zero() {
+                let style = if qtys.requested.is_zero() || qtys.limit.is_zero() {
+                    "rFr"
+                } else {
+                    "r"
+                };
+                Row::new(vec![
+                    Cell::new(&column0),
+                    Cell::new(&format!("{}", qtys.requested.adjust_scale())).style_spec(style),
+                    Cell::new("").style_spec(style),
+                    Cell::new(&format!("{}", qtys.limit.adjust_scale())).style_spec(style),
+                    Cell::new("").style_spec(style),
+                    Cell::new("").style_spec(style),
+                    Cell::new("").style_spec(style),
+                ])
             } else {
-                "r"
-            };
-            Row::new(vec![
-                Cell::new(&format!(
-                    "{} {}",
-                    prefix,
-                    k.last().map(|x| x.as_str()).unwrap_or("???")
-                )),
-                Cell::new(&format!("{}", qtys.requested.adjust_scale())).style_spec(style),
-                Cell::new("").style_spec(style),
-                Cell::new(&format!("{}", qtys.limit.adjust_scale())).style_spec(style),
-                Cell::new("").style_spec(style),
-                Cell::new("").style_spec(style),
-                Cell::new("").style_spec(style),
-            ])
+                row![
+                    &column0,
+                    r-> &format!("{}", qtys.requested.adjust_scale()),
+                    r-> &format!("{:4.0}%", qtys.requested.calc_percentage(&qtys.allocatable)),
+                    r-> &format!("{}", qtys.limit.adjust_scale()),
+                    r-> &format!("{:4.0}%", qtys.limit.calc_percentage(&qtys.allocatable)),
+                    r-> &format!("{}", qtys.allocatable.adjust_scale()),
+                    r-> &format!("{}", qtys.calc_free().adjust_scale()),
+                ]
+            }
         } else {
             row![
-                &format!("{} {}", prefix, k.last().map(|x| x.as_str()).unwrap_or("???")),
-                r-> &format!("{}", qtys.requested.adjust_scale()),
-                r-> &format!("{:4.0}%", qtys.requested.calc_percentage(&qtys.allocatable)),
-                r-> &format!("{}", qtys.limit.adjust_scale()),
-                r-> &format!("{:4.0}%", qtys.limit.calc_percentage(&qtys.allocatable)),
-                r-> &format!("{}", qtys.allocatable.adjust_scale()),
-                r-> &format!("{}", qtys.calc_free().adjust_scale()),
+                &column0,
+                r-> "",
+                r-> "",
+                r-> "",
+                r-> "",
+                r-> "",
+                r-> "",
             ]
         };
         table.add_row(row);
