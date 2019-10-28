@@ -75,3 +75,46 @@ OPTIONS:
      ├─ bbbb-1571738688-vlxng                       1                  1
      └─ cccc-1571745684-7k6bn                       1                  1
 ```
+
+### overview only
+
+```sh
+> kubectl-view-allocations -g resource
+
+ Resource            Requested  %Requested  Limit  %Limit  Allocatable   Free
+  cpu                       11          6%     56     28%          200    144
+  ephemeral-storage          0          0%      0      0%          5Ti    5Ti
+  memory                  25Gi          5%  164Gi     34%        485Gi  320Gi
+  nvidia.com/gpu             9         75%      9     75%           12      3
+  pods                       0          0%      0      0%          1Ki    1Ki
+```
+
+### group by namespaces
+
+```sh
+> kubectl-view-allocations -g namespace
+
+ Resource            Requested  %Requested  Limit  %Limit  Allocatable   Free
+  cpu                       11          6%     56     28%          200    144
+  ├─ default                 2                 28
+  └─ dev                     9                 28
+  ephemeral-storage          0          0%      0      0%          5Ti    5Ti
+  memory                  25Gi          5%  164Gi     34%        485Gi  320Gi
+  ├─ cert-manager         96Mi              256Mi
+  ├─ default               4Gi               76Gi
+  ├─ dev                  13Gi               77Gi
+  ├─ dns-external        280Mi              680Mi
+  ├─ docs                256Mi              384Mi
+  ├─ ingress-nginx       512Mi                2Gi
+  ├─ kube-system         640Mi              840Mi
+  ├─ loki                  1Gi                1Gi
+  ├─ monitoring            3Gi                3Gi
+  └─ weave                 1Gi                1Gi
+  nvidia.com/gpu             9         75%      9     75%           12      3
+  └─ dev                     9                  9
+  pods                       0          0%      0      0%          1Ki    1Ki
+```
+
+## Alternatives
+
+- see the discussion [Need simple kubectl command to see cluster resource usage · Issue #17512 · kubernetes/kubernetes](https://github.com/kubernetes/kubernetes/issues/17512)
