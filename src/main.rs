@@ -167,12 +167,29 @@ fn collect_from_pods(
         Api::v1Pod(client)
     };
     let pods = api_pods.list(&ListParams::default())?;
-    for pod in pods.items {
-        let node_name = pod
-            .status
-            .and_then(|v| v.nominated_node_name)
+    for pod in pods.items.into_iter().filter(|pod| {
+        pod.status
+            .as_ref()
+            .and_then(|ps| ps.phase.as_ref().map(|s| s == "Running"))
+            .unwrap_or(false)
+    }) {
+        let status = pod.status.as_ref();
+        let node_name = status
+            .and_then(|v| v.nominated_node_name.clone())
             .or(pod.spec.node_name);
-        for container in pod.spec.containers {
+        for (_, container) in pod
+            .spec
+            .containers
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| {
+                status
+                    .and_then(|s| s.container_statuses.as_ref())
+                    .and_then(|v| v.get(*i).and_then(|v| v.state.as_ref()))
+                    .map(|s| s.running.is_some())
+                    .unwrap_or(true)
+            })
+        {
             let location = Location {
                 node_name: node_name.clone(),
                 namespace: pod.metadata.namespace.clone(),
