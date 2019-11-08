@@ -18,7 +18,7 @@ jobs:
           - imageName: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             profile: linux
-          - imageName: 'macOS-10.14'
+          - imageName: "macOS-latest"
             target: x86_64-apple-darwin
             profile: mac
           # - imageName: 'windows-2019'
@@ -28,18 +28,17 @@ jobs:
       TARGET: ${{matrix.os.target}}
 
     steps:
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: ${{ matrix.rust_toolchain }}
-        override: true
-    - uses: davidB/rust-cargo-make@v1
-    - uses: actions/checkout@v1
-    - name: Make zip-release-ci-flow
-      run: cargo make --disable-check-for-updates --profile ${{ matrix.os.profile }} zip-release-ci-flow
-    - name: Upload to gitHub release
-      run: cargo make --disable-check-for-updates --profile ${{ matrix.os.profile }} github-upload-flow
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        TAG: ${{ github.ref }}
-        # GITHUB_REPOSITORY: ${{ GITHUB_REPOSITORY }}
-
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust_toolchain }}
+          override: true
+      - uses: davidB/rust-cargo-make@v1
+      - uses: actions/checkout@v1
+      - name: Make zip-release-ci-flow
+        run: cargo make --disable-check-for-updates --profile ${{ matrix.os.profile }} zip-release-ci-flow
+      - name: Upload to gitHub release
+        run: cargo make --disable-check-for-updates --profile ${{ matrix.os.profile }} github-upload-flow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref }}
+          # GITHUB_REPOSITORY: ${{ GITHUB_REPOSITORY }}
