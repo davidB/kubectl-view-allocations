@@ -12,7 +12,7 @@ homepage = "https://github.com/davidB/kubectl-view-allocations"
 exclude = ["/.github", "/.dependabot", ".gitignore"]
 
 [dependencies]
-kube = { version = "0.17.1", features = ["openapi"] }
+kube = { version = "0.18.1", features = ["openapi"] }
 k8s-openapi = { version = "0.6.0", features = ["v1_15"] }
 log = "0.4.8"
 env_logger = "0.7.1"
