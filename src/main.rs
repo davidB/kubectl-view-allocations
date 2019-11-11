@@ -126,13 +126,13 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
     resource_filter.is_empty() || resource_filter.iter().any(|x| name.contains(x))
 }
 
-fn collect_from_nodes(
+async fn collect_from_nodes(
     client: APIClient,
     resources: &mut Vec<Resource>,
     resource_names: &[String],
 ) -> Result<(), Error> {
     let api_nodes = Api::v1Node(client); //.within("default");
-    let nodes = api_nodes.list(&ListParams::default())?;
+    let nodes = api_nodes.list(&ListParams::default()).await?;
     for node in nodes.items {
         let location = Location {
             node_name: Some(node.metadata.name.clone()),
@@ -155,7 +155,7 @@ fn collect_from_nodes(
     Ok(())
 }
 
-fn collect_from_pods(
+async fn collect_from_pods(
     client: APIClient,
     resources: &mut Vec<Resource>,
     resource_names: &[String],
@@ -166,7 +166,7 @@ fn collect_from_pods(
     } else {
         Api::v1Pod(client)
     };
-    let pods = api_pods.list(&ListParams::default())?;
+    let pods = api_pods.list(&ListParams::default()).await?;
     for pod in pods.items.into_iter().filter(|pod| {
         pod.status
             .as_ref()
@@ -290,7 +290,8 @@ struct CliOpts {
     group_by: Vec<GroupBy>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> () {
     // std::env::set_var("RUST_LOG", "info,kube=trace");
     env_logger::init();
     let mut cli_opts = CliOpts::from_args();
@@ -306,24 +307,27 @@ fn main() {
     cli_opts.group_by.dedup();
     // dbg!(&cli_opts);
 
-    let r = do_main(&cli_opts);
+    let r = do_main(&cli_opts).await;
     if let Err(e) = r {
         error!("failed \ncli: {:?}\nerror: {:?}", &cli_opts, &e);
     }
 }
 
-fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
-    let config = config::load_kube_config().expect("failed to load kubeconfig");
+async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
+    let config = config::load_kube_config()
+        .await
+        .expect("failed to load kubeconfig");
     let client = APIClient::new(config);
 
     let mut resources: Vec<Resource> = vec![];
-    collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name)?;
+    collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name).await?;
     collect_from_pods(
         client.clone(),
         &mut resources,
         &cli_opts.resource_name,
         &cli_opts.namespace,
-    )?;
+    )
+    .await?;
 
     let res = make_usages(&resources, &cli_opts.group_by);
     display_with_prettytable(&res, !&cli_opts.show_zero);
