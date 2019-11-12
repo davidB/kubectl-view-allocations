@@ -24,6 +24,7 @@ itertools = "0.8.1"
 prettytable-rs = { version = "0.8.0", default-features = false}
 # human_format = "1.0.2" # vendored due to println and bugs
 structopt = "0.3.3"
+openssl = { version = "0.10", features = ["vendored"] }
 
 [dev-dependencies]
 spectral = "0.6.0"
