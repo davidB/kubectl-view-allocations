@@ -2,7 +2,7 @@ mod qty;
 mod tree;
 // mod human_format;
 use env_logger;
-use failure::Error;
+use anyhow::{Context, Result};
 use itertools::Itertools;
 use log::error;
 use qty::Qty;
@@ -130,7 +130,7 @@ async fn collect_from_nodes(
     client: APIClient,
     resources: &mut Vec<Resource>,
     resource_names: &[String],
-) -> Result<(), Error> {
+) -> Result<()> {
     let api_nodes = Api::v1Node(client); //.within("default");
     let nodes = api_nodes.list(&ListParams::default()).await?;
     for node in nodes.items {
@@ -160,7 +160,7 @@ async fn collect_from_pods(
     resources: &mut Vec<Resource>,
     resource_names: &[String],
     namespace: &Option<String>,
-) -> Result<(), Error> {
+) -> Result<()> {
     let api_pods = if let Some(ns) = namespace {
         Api::v1Pod(client).within(ns)
     } else {
@@ -313,10 +313,10 @@ async fn main() -> () {
     }
 }
 
-async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
+async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     let config = config::load_kube_config()
         .await
-        .expect("failed to load kubeconfig");
+        .with_context(|| "failed to load kubeconfig")?;
     let client = APIClient::new(config);
 
     let mut resources: Vec<Resource> = vec![];

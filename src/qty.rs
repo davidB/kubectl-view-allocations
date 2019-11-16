@@ -2,7 +2,7 @@
 // see [Managing Compute Resources for Containers - Kubernetes](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
 //TODO rewrite to support exponent, ... see [apimachinery/quantity.go at master · kubernetes/apimachinery](https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go)
 
-use failure::{format_err, Error};
+use anyhow::{anyhow, Error};
 use std::cmp::Ordering;
 use std::str::FromStr;
 
@@ -36,7 +36,7 @@ impl FromStr for Scale {
             .iter()
             .find(|v| v.label == s)
             .cloned()
-            .ok_or_else(|| format_err!("scale not found"))
+            .ok_or_else(|| anyhow!("scale not found"))
     }
 }
 
