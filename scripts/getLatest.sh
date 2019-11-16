@@ -26,7 +26,7 @@ fail() {
 
 find_download_url() {
   local SUFFIX=$1
-  local URL=$(curl -s https://api.github.com/repos/${GITHUB_REPO}/${GITHUB_USER}/releases/latest |
+  local URL=$(curl -s https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest |
     grep "browser_download_url.*${SUFFIX}" |
     cut -d : -f 2,3 |
     tr -d \" |
