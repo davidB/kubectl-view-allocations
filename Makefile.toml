@@ -80,9 +80,9 @@ script = [
   "mkdir -p ${DIST_PATH}",
   "cp target/${TARGET}/release/${CARGO_MAKE_CRATE_NAME} ${DIST_PATH}/",
   "strip ${DIST_PATH}/${CARGO_MAKE_CRATE_NAME}",
-  # "cp README.md LICENSE* ${OUTPUT_NAME}/",
-  # "zip -r ${OUTPUT_NAME}.zip ${OUTPUT_NAME}",
-  "tar -czvf ${DIST_PATH}.${DIST_EXT} -C ${DIST_PATH} ${CARGO_MAKE_CRATE_NAME}"
+  "cp README.md LICENSE.txt ${DIST_PATH}/",
+  # "zip -r ${OUTPUT_NAME}.zip ${DIST_PATH}",
+  "tar -czvf ${DIST_PATH}.${DIST_EXT} -C ${DIST_PATH} ${CARGO_MAKE_CRATE_NAME} LICENSE.txt"
 ]
 
 [tasks.zip-release-binary-for-target.windows]
@@ -92,9 +92,9 @@ script = [
   "rm -Rf ${DIST_PATH}*",
   "md ${DIST_PATH}",
   "powershell copy-item -path target\\${TARGET}\\release\\${CARGO_MAKE_CRATE_NAME}.exe -destination ${DIST_PATH}",
-  # "powershell copy-item -path README.md -destination ${OUTPUT_NAME}",
-  # "powershell copy-item -path LICENSE -destination ${OUTPUT_NAME}",
-  #"dir ${OUTPUT_NAME}",
+  # "powershell copy-item -path README.md -destination ${DIST_PATH}",
+  "powershell copy-item -path LICENSE.txt -destination ${DIST_PATH}",
+  # "dir ${OUTPUT_NAME}",
   "powershell Compress-Archive -Path ${DIST_PATH}\\* -DestinationPath ${DIST_PATH}.${DIST_EXT} -CompressionLevel Optimal",
 ]
 
