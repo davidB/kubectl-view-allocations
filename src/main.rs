@@ -2,7 +2,7 @@ mod qty;
 mod tree;
 // mod human_format;
 use env_logger;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
 use log::error;
 use qty::Qty;
@@ -313,10 +313,23 @@ async fn main() -> () {
     }
 }
 
-async fn do_main(cli_opts: &CliOpts) -> Result<()> {
-    let config = config::load_kube_config()
+async fn load_kube_config() -> Result<config::Configuration> {
+    //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
+    use std::process::Command;
+    let output = Command::new("kubectl")
+            .arg("cluster-info")
+            .output()
+            .with_context(|| "failed to executed 'kubectl cluster-info'")?;
+    if !output.status.success() {
+        return Err(anyhow!("`kubectl cluster-info` failed with: {:?}", &output));
+    }
+    config::load_kube_config()
         .await
-        .with_context(|| "failed to load kubeconfig")?;
+        .with_context(|| "failed to load kubeconfig")
+}
+
+async fn do_main(cli_opts: &CliOpts) -> Result<()> {
+    let config = load_kube_config().await?;
     let client = APIClient::new(config);
 
     let mut resources: Vec<Resource> = vec![];
