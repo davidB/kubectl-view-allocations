@@ -10,7 +10,16 @@
 [![Crates.io](https://img.shields.io/crates/d/kubectl-view-allocations.svg)](https://crates.io/crates/kubectl-view-allocations)
 ![GitHub All Releases](https://img.shields.io/github/downloads/davidB/kubectl-view-allocations/total.svg)
 
-`kubectl` plugin lists allocations (requested, limit, allocatable) for resources (cpu, memory, gpu,...) as defined into the manifest of nodes and running pods. It doesn't list usage like `kubectl top`. It can provide result grouped by namespaces, nodes, pods and filtered by resources'name.
+`kubectl` plugin lists allocations for resources (cpu, memory, gpu,...) as defined into the manifest of nodes and running pods. It doesn't list usage like `kubectl top`. It can provide result grouped by namespaces, nodes, pods and filtered by resources'name.
+
+Columns displayed :
+
+- `Requested` : Quantity of resources requested by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running.
+- `%Requested` : Percentage of resources requested over what is allocatable in the group.
+- `Limit` : Quantity of resources max (limit) requestable by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running.
+- `%Limit` : Percentage of resources max / limit over what is allocatable in the group.
+- `Allocatable` : Allocatable resources defined (or detected) on nodes.
+- `Free` : `Allocatable - max (Limit, Requested)`
 
 ## Install
 
