@@ -103,14 +103,14 @@ impl Qty {
     }
 
     pub fn adjust_scale(&self) -> Qty {
-        let value = f64::from(self);
+        let valuef64 = f64::from(self);
         let scale = SCALES
             .iter()
             .filter(|s| s.base == self.scale.base || self.scale.base == 0)
-            .find(|s| f64::from(*s) <= value);
+            .find(|s| f64::from(*s) <= valuef64);
         match scale {
             Some(scale) => Qty {
-                value: (value / f64::from(scale)) as i64,
+                value: self.value,
                 scale: scale.clone(),
             },
             None => self.clone(),
@@ -133,7 +133,12 @@ impl FromStr for Qty {
 
 impl std::fmt::Display for Qty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.value, self.scale.label)
+        write!(
+            f,
+            "{}{}",
+            (self.value as f64 / (f64::from(&self.scale) * 1000f64)) as i64,
+            self.scale.label
+        )
     }
 }
 
@@ -249,6 +254,32 @@ mod tests {
         for (input, expected) in cases {
             assert_that!(format!("{}", &Qty::from_str(input)?.adjust_scale()))
                 .is_equal_to(expected.to_string());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_display() -> Result<(), Box<dyn std::error::Error>> {
+        //assert_that!(Qty { value: 929091584, scale: Scale { label: "", base: 0, pow: 0 } }.adjust_scale()).is_equal_to(Qty { value: 886, scale: Scale { label: "Mi", base: 10, pow: 6 } });
+        let cases = vec![
+            "1k",
+            "10k",
+            "100k",
+            "999k",
+            "1000k",
+            "1999k",
+            "1Ki",
+            "10Ki",
+            "100Ki",
+            "1000Ki",
+            "1024Ki",
+            "25641877504",
+            "1000m",
+            "100m",
+            "1m",
+        ];
+        for input in cases {
+            assert_that!(format!("{}", &Qty::from_str(input)?)).is_equal_to(input.to_string());
         }
         Ok(())
     }
