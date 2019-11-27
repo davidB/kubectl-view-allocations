@@ -233,7 +233,6 @@ mod tests {
 
     #[test]
     fn expectation_ok_for_adjust_scale() -> Result<(), Box<dyn std::error::Error>> {
-        //assert_that!(Qty { value: 929091584, scale: Scale { label: "", base: 0, pow: 0 } }.adjust_scale()).is_equal_to(Qty { value: 886, scale: Scale { label: "Mi", base: 10, pow: 6 } });
         let cases = vec![
             ("1k", "1k"),
             ("10k", "10k"),
@@ -260,7 +259,6 @@ mod tests {
 
     #[test]
     fn test_display() -> Result<(), Box<dyn std::error::Error>> {
-        //assert_that!(Qty { value: 929091584, scale: Scale { label: "", base: 0, pow: 0 } }.adjust_scale()).is_equal_to(Qty { value: 886, scale: Scale { label: "Mi", base: 10, pow: 6 } });
         let cases = vec![
             "1k",
             "10k",
