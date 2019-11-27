@@ -19,7 +19,7 @@ k8s-openapi = { version = "0.6.0", features = ["v1_15"], default-features = fals
 log = "0.4.8"
 env_logger = "0.7.1"
 anyhow = "1.0.23"
-serde_json = "1.0.41"
+serde_json = "1.0.42"
 itertools = "0.8.1"
 prettytable-rs = { version = "0.8.0", default-features = false}
 # human_format = "1.0.2" # vendored due to println and bugs
