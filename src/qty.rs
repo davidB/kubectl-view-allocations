@@ -67,6 +67,16 @@ impl PartialOrd for Scale {
     }
 }
 
+impl Scale {
+    fn min(&self, other: &Scale) -> Scale {
+        if self < other {
+            self.clone()
+        } else {
+            other.clone()
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Qty {
     value: i64,
@@ -75,7 +85,7 @@ pub struct Qty {
 
 impl From<&Qty> for f64 {
     fn from(v: &Qty) -> f64 {
-        (v.value as f64) * f64::from(&v.scale)
+        (v.value as f64) * 0.001
     }
 }
 
@@ -115,8 +125,8 @@ impl FromStr for Qty {
             Some(pos) => (&s[..pos], &s[pos..]),
             None => (s, ""),
         };
-        let value = i64::from_str(num_str)?;
         let scale = Scale::from_str(scale_str.trim())?;
+        let value = (f64::from_str(num_str)? * f64::from(&scale) * 1000f64) as i64;
         Ok(Qty { value, scale })
     }
 }
@@ -130,78 +140,69 @@ impl std::fmt::Display for Qty {
 impl PartialOrd for Qty {
     //TODO optimize accuracy with big number
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let v1 = f64::from(self);
-        let v2 = f64::from(other);
+        let v1 = self.value; // f64::from(self);
+        let v2 = other.value; // f64::from(other);
         if v1 > v2 {
             Some(Ordering::Greater)
         } else if v1 < v2 {
             Some(Ordering::Less)
-        } else if (v1 - v2).abs() < std::f64::EPSILON {
-            Some(Ordering::Equal)
+        // } else if (v1 - v2).abs() < std::f64::EPSILON {
+        //     Some(Ordering::Equal)
         } else {
             None
         }
     }
 }
 
-// impl PartialOrd for Person {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         Some(self.cmp(other))
-//     }
-// }
-
-// impl PartialEq for Person {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.height == other.height
-//     }
-// }
+impl std::ops::Add for Qty {
+    type Output = Qty;
+    fn add(self, other: Self) -> Qty {
+        &self + &other
+    }
+}
 
 impl std::ops::Add for &Qty {
     type Output = Qty;
-    //TODO optimize + use int
     fn add(self, other: Self) -> Qty {
-        let v1 = f64::from(self);
-        let v2 = f64::from(other);
         Qty {
-            value: (v1 + v2) as i64,
-            scale: Scale {
-                label: "",
-                base: self.scale.base.min(other.scale.base),
-                pow: 0,
-            },
+            value: self.value + other.value,
+            scale: self.scale.min(&other.scale),
         }
     }
 }
 
 impl<'b> std::ops::AddAssign<&'b Qty> for Qty {
     fn add_assign(&mut self, other: &'b Self) {
-        let v1 = f64::from(&*self);
-        let v2 = f64::from(other);
         *self = Qty {
-            value: (v1 + v2) as i64,
-            scale: Scale {
-                label: "",
-                base: self.scale.base.min(other.scale.base),
-                pow: 0,
-            },
-        };
+            value: self.value + other.value,
+            scale: self.scale.min(&other.scale),
+        }
+    }
+}
+
+impl std::ops::Sub for Qty {
+    type Output = Qty;
+    fn sub(self, other: Self) -> Qty {
+        &self - &other
     }
 }
 
 impl std::ops::Sub for &Qty {
     type Output = Qty;
-    //TODO optimize
     fn sub(self, other: Self) -> Qty {
-        let v1 = f64::from(self);
-        let v2 = f64::from(other);
         Qty {
-            value: (v1 - v2) as i64,
-            scale: Scale {
-                label: "",
-                base: self.scale.base.min(other.scale.base),
-                pow: 0,
-            },
+            value: self.value - other.value,
+            scale: self.scale.min(&other.scale),
         }
+    }
+}
+
+impl<'b> std::ops::SubAssign<&'b Qty> for Qty {
+    fn sub_assign(&mut self, other: &'b Self) {
+        *self = Qty {
+            value: self.value - other.value,
+            scale: self.scale.min(&other.scale),
+        };
     }
 }
 
@@ -215,7 +216,7 @@ mod tests {
         assert_that!(f64::from(&Qty::from_str("1k")?))
             .is_close_to(f64::from(&Qty::from_str("1000000m")?), 0.01);
         assert_that!(Qty::from_str("1Ki")?).is_equal_to(Qty {
-            value: 1,
+            value: 1024000,
             scale: Scale {
                 label: "Ki",
                 base: 2,
@@ -252,18 +253,44 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    // fn test_basic_to_unit_changes() -> Result<(), Box<dyn std::error::Error>> {
-    //     assert_that!(Qty::from_str("1k")?.to_unit(SiUnit::from_str("")?)).is_equal_to(Qty::from_str("1000")?);
-    //     assert_that!(Qty::from_str("1k")?.to_unit(SiUnit::from_str("m")?)).is_equal_to(Qty::from_str("1000000m")?);
-    //     assert_that!(Qty::from_str("1Ki")?.to_unit(SiUnit::from_str("")?)).is_equal_to(Qty::from_str("1024")?);
-    //     Ok(())
-    // }
+    #[test]
+    fn test_f64_from_scale() -> Result<(), Box<dyn std::error::Error>> {
+        assert_that!(f64::from(&Scale::from_str("m")?)).is_close_to(0.001, 0.00001);
+        Ok(())
+    }
 
-    // #[test]
-    // fn test_add() -> Result<(), Box<dyn std::error::Error>> {
-    //     assert_that!((&Qty::from_str("1Ki")?) + &Qty::from_str("1Ki")?).is_equal_to(Qty::from_str("2Ki")?);
-    //     assert_that!((&Qty::from_str("1Ki")?) + &Qty::from_str("1k")?).is_equal_to(Qty::from_str("2024")?);
-    //     Ok(())
-    // }
+    #[test]
+    fn test_f64_from_qty() -> Result<(), Box<dyn std::error::Error>> {
+        assert_that!(f64::from(&Qty::from_str("20m")?)).is_close_to(0.020, 0.00001);
+        assert_that!(f64::from(&Qty::from_str("300m")?)).is_close_to(0.300, 0.00001);
+        assert_that!(f64::from(&Qty::from_str("1000m")?)).is_close_to(1.000, 0.00001);
+        Ok(())
+    }
+
+    #[test]
+    fn test_add() -> Result<(), Box<dyn std::error::Error>> {
+        assert_that!(
+            &(Qty::from_str("1")?
+                + Qty::from_str("300m")?
+                + Qty::from_str("300m")?
+                + Qty::from_str("300m")?
+                + Qty::from_str("300m")?)
+        )
+        .is_equal_to(&Qty::from_str("2200m")?);
+        assert_that!(&(Qty::from_str("20m")? + Qty::from_str("300m")?))
+            .is_equal_to(Qty::from_str("320m")?);
+        assert_that!(&(Qty::from_str("1k")? + Qty::from_str("300m")?))
+            .is_equal_to(&Qty::from_str("1000300m")?);
+        assert_that!(&(Qty::from_str("1Ki")? + Qty::from_str("1Ki")?))
+            .is_equal_to(&Qty::from_str("2Ki")?);
+        assert_that!(&(Qty::from_str("1Ki")? + Qty::from_str("1k")?)).is_equal_to(&Qty {
+            value: 2024000,
+            scale: Scale {
+                label: "k",
+                base: 10,
+                pow: 3,
+            },
+        });
+        Ok(())
+    }
 }
