@@ -1,8 +1,8 @@
 mod qty;
 mod tree;
 // mod human_format;
-use env_logger;
 use anyhow::{anyhow, Context, Result};
+use env_logger;
 use itertools::Itertools;
 use log::error;
 use qty::Qty;
@@ -317,9 +317,9 @@ async fn load_kube_config() -> Result<config::Configuration> {
     //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
     use std::process::Command;
     let output = Command::new("kubectl")
-            .arg("cluster-info")
-            .output()
-            .with_context(|| "failed to executed 'kubectl cluster-info'")?;
+        .arg("cluster-info")
+        .output()
+        .with_context(|| "failed to executed 'kubectl cluster-info'")?;
     if !output.status.success() {
         return Err(anyhow!("`kubectl cluster-info` failed with: {:?}", &output));
     }
@@ -390,9 +390,9 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
                 };
                 Row::new(vec![
                     Cell::new(&column0),
-                    Cell::new(&format!("{}", qtys.requested.adjust_scale())).style_spec(style),
+                    Cell::new(&format!("{}", qtys.requested)).style_spec(style),
                     Cell::new("").style_spec(style),
-                    Cell::new(&format!("{}", qtys.limit.adjust_scale())).style_spec(style),
+                    Cell::new(&format!("{}", qtys.limit)).style_spec(style),
                     Cell::new("").style_spec(style),
                     Cell::new("").style_spec(style),
                     Cell::new("").style_spec(style),
@@ -400,9 +400,9 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
             } else {
                 row![
                     &column0,
-                    r-> &format!("{}", qtys.requested.adjust_scale()),
+                    r-> &format!("{}", qtys.requested),
                     r-> &format!("{:4.0}%", qtys.requested.calc_percentage(&qtys.allocatable)),
-                    r-> &format!("{}", qtys.limit.adjust_scale()),
+                    r-> &format!("{}", qtys.limit),
                     r-> &format!("{:4.0}%", qtys.limit.calc_percentage(&qtys.allocatable)),
                     r-> &format!("{}", qtys.allocatable.adjust_scale()),
                     r-> &format!("{}", qtys.calc_free().adjust_scale()),
