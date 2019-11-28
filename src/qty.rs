@@ -159,6 +159,16 @@ impl PartialOrd for Qty {
     }
 }
 
+fn select_scale_for_add(v1: &Qty, v2: &Qty) -> Scale {
+    if v2.value == 0 {
+        v1.scale.clone()
+    } else if v1.value == 0 {
+        v2.scale.clone()
+    } else {
+        v1.scale.min(&v2.scale)
+    }
+}
+
 impl std::ops::Add for Qty {
     type Output = Qty;
     fn add(self, other: Self) -> Qty {
@@ -171,7 +181,7 @@ impl std::ops::Add for &Qty {
     fn add(self, other: Self) -> Qty {
         Qty {
             value: self.value + other.value,
-            scale: self.scale.min(&other.scale),
+            scale: select_scale_for_add(self, other),
         }
     }
 }
@@ -180,7 +190,7 @@ impl<'b> std::ops::AddAssign<&'b Qty> for Qty {
     fn add_assign(&mut self, other: &'b Self) {
         *self = Qty {
             value: self.value + other.value,
-            scale: self.scale.min(&other.scale),
+            scale: select_scale_for_add(self, other),
         }
     }
 }
@@ -197,7 +207,7 @@ impl std::ops::Sub for &Qty {
     fn sub(self, other: Self) -> Qty {
         Qty {
             value: self.value - other.value,
-            scale: self.scale.min(&other.scale),
+            scale: select_scale_for_add(self, other),
         }
     }
 }
@@ -206,7 +216,7 @@ impl<'b> std::ops::SubAssign<&'b Qty> for Qty {
     fn sub_assign(&mut self, other: &'b Self) {
         *self = Qty {
             value: self.value - other.value,
-            scale: self.scale.min(&other.scale),
+            scale: select_scale_for_add(self, other),
         };
     }
 }
@@ -306,6 +316,10 @@ mod tests {
                 + Qty::from_str("300m")?)
         )
         .is_equal_to(&Qty::from_str("2200m")?);
+        assert_that!(&(Qty::default() + Qty::from_str("300m")?))
+            .is_equal_to(Qty::from_str("300m")?);
+        assert_that!(&(Qty::default() + Qty::from_str("16Gi")?))
+            .is_equal_to(Qty::from_str("16Gi")?);
         assert_that!(&(Qty::from_str("20m")? + Qty::from_str("300m")?))
             .is_equal_to(Qty::from_str("320m")?);
         assert_that!(&(Qty::from_str("1k")? + Qty::from_str("300m")?))
