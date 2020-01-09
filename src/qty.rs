@@ -121,7 +121,9 @@ impl Qty {
 impl FromStr for Qty {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (num_str, scale_str): (&str, &str) = match s.find(|c: char| !c.is_digit(10)) {
+        let (num_str, scale_str): (&str, &str) = match s
+            .find(|c: char| !c.is_digit(10) && c != 'E' && c != 'e' && c != '+' && c != '-')
+        {
             Some(pos) => (&s[..pos], &s[pos..]),
             None => (s, ""),
         };
@@ -306,6 +308,9 @@ mod tests {
         assert_that!(f64::from(&Qty::from_str("20m")?)).is_close_to(0.020, 0.00001);
         assert_that!(f64::from(&Qty::from_str("300m")?)).is_close_to(0.300, 0.00001);
         assert_that!(f64::from(&Qty::from_str("1000m")?)).is_close_to(1.000, 0.00001);
+        assert_that!(f64::from(&Qty::from_str("+1000m")?)).is_close_to(1.000, 0.00001);
+        assert_that!(f64::from(&Qty::from_str("-1000m")?)).is_close_to(-1.000, 0.00001);
+        assert_that!(f64::from(&Qty::from_str("3145728e3")?)).is_close_to(3145728000.000, 0.00001);
         Ok(())
     }
 
