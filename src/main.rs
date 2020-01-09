@@ -132,7 +132,10 @@ async fn collect_from_nodes(
     resource_names: &[String],
 ) -> Result<()> {
     let api_nodes = Api::v1Node(client); //.within("default");
-    let nodes = api_nodes.list(&ListParams::default()).await?;
+    let nodes = api_nodes
+        .list(&ListParams::default())
+        .await
+        .with_context(|| format!("Failed to list nodes via k8s api"))?;
     for node in nodes.items {
         let location = Location {
             node_name: Some(node.metadata.name.clone()),
@@ -143,10 +146,16 @@ async fn collect_from_nodes(
                 .into_iter()
                 .filter(|a| accept_resource(&a.0, resource_names))
             {
+                let quantity = Qty::from_str(&(a.1).0).with_context(|| {
+                    format!(
+                        "Failed to read Qty of location {:?} / available {:?}",
+                        &location, &a
+                    )
+                })?;
                 resources.push(Resource {
                     kind: a.0,
                     usage: ResourceUsage::Allocatable,
-                    quantity: Qty::from_str(&(a.1).0)?,
+                    quantity,
                     location: location.clone(),
                 });
             }
@@ -166,7 +175,10 @@ async fn collect_from_pods(
     } else {
         Api::v1Pod(client)
     };
-    let pods = api_pods.list(&ListParams::default()).await?;
+    let pods = api_pods
+        .list(&ListParams::default())
+        .await
+        .with_context(|| format!("Failed to list pods via k8s api"))?;
     for pod in pods.items.into_iter().filter(|pod| {
         pod.status
             .as_ref()
@@ -202,10 +214,16 @@ async fn collect_from_pods(
                         .into_iter()
                         .filter(|a| accept_resource(&a.0, resource_names))
                     {
+                        let quantity = Qty::from_str(&(request.1).0).with_context(|| {
+                            format!(
+                                "Failed to read Qty of location {:?} / request {:?}",
+                                &location, &request
+                            )
+                        })?;
                         resources.push(Resource {
                             kind: request.0,
                             usage: ResourceUsage::Requested,
-                            quantity: Qty::from_str(&(request.1).0)?,
+                            quantity,
                             location: location.clone(),
                         });
                     }
@@ -215,10 +233,16 @@ async fn collect_from_pods(
                         .into_iter()
                         .filter(|a| accept_resource(&a.0, resource_names))
                     {
+                        let quantity = Qty::from_str(&(limit.1).0).with_context(|| {
+                            format!(
+                                "Failed to read Qty of location {:?} / limit {:?}",
+                                &location, &limit
+                            )
+                        })?;
                         resources.push(Resource {
                             kind: limit.0,
                             usage: ResourceUsage::Limit,
-                            quantity: Qty::from_str(&(limit.1).0)?,
+                            quantity,
                             location: location.clone(),
                         });
                     }
@@ -329,18 +353,23 @@ async fn load_kube_config() -> Result<config::Configuration> {
 }
 
 async fn do_main(cli_opts: &CliOpts) -> Result<()> {
-    let config = load_kube_config().await?;
+    let config = load_kube_config()
+        .await
+        .with_context(|| format!("failed to load kubectl config"))?;
     let client = APIClient::new(config);
 
     let mut resources: Vec<Resource> = vec![];
-    collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name).await?;
+    collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name)
+        .await
+        .with_context(|| format!("failed to collect info from nodes"))?;
     collect_from_pods(
         client.clone(),
         &mut resources,
         &cli_opts.resource_name,
         &cli_opts.namespace,
     )
-    .await?;
+    .await
+    .with_context(|| format!("failed to collect info from pods"))?;
 
     let res = make_usages(&resources, &cli_opts.group_by);
     display_with_prettytable(&res, !&cli_opts.show_zero);

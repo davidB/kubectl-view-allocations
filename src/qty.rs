@@ -2,7 +2,7 @@
 // see [Managing Compute Resources for Containers - Kubernetes](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
 //TODO rewrite to support exponent, ... see [apimachinery/quantity.go at master · kubernetes/apimachinery](https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go)
 
-use anyhow::{anyhow, Error};
+use anyhow::{anyhow, Context, Error};
 use std::cmp::Ordering;
 use std::str::FromStr;
 
@@ -36,7 +36,7 @@ impl FromStr for Scale {
             .iter()
             .find(|v| v.label == s)
             .cloned()
-            .ok_or_else(|| anyhow!("scale not found"))
+            .ok_or_else(|| anyhow!("scale not found in {}", s))
     }
 }
 
@@ -125,8 +125,11 @@ impl FromStr for Qty {
             Some(pos) => (&s[..pos], &s[pos..]),
             None => (s, ""),
         };
-        let scale = Scale::from_str(scale_str.trim())?;
-        let value = (f64::from_str(num_str)? * f64::from(&scale) * 1000f64) as i64;
+        let scale = Scale::from_str(scale_str.trim())
+            .with_context(|| format!("Failed to read Qty (scale) from {}", s))?;
+        let num = f64::from_str(num_str)
+            .with_context(|| format!("Failed to read Qty (num) from {}", s))?;
+        let value = (num * f64::from(&scale) * 1000f64) as i64;
         Ok(Qty { value, scale })
     }
 }
