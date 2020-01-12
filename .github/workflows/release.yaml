@@ -15,7 +15,7 @@ jobs:
       matrix:
         rust_toolchain: ["stable"]
         os:
-          - imageName: ubuntu-18.04
+          - imageName: ubuntu-16.04
             target: x86_64-unknown-linux-gnu
             profile: linux
           - imageName: "macOS-latest"
