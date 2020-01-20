@@ -28,7 +28,7 @@ Columns displayed :
 Download from [github's release](https://github.com/davidB/kubectl-view-allocations/releases/latest) or use script
 
 ```sh
-curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/scripts/getLatest.sh | sh
+curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/scripts/getLatest.sh | bash
 ```
 
 ### via cargo

@@ -26,9 +26,8 @@ fail() {
 
 find_download_url() {
   local SUFFIX=$1
-  local URL=$(curl -s https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest |
-    grep "browser_download_url.*${SUFFIX}" |
-    cut -d : -f 2,3 |
+  local LATEST_URL="https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest"
+  local URL=$(curl -s "${LATEST_URL}" | grep "browser_download_url.*${SUFFIX}" | cut -d : -f 2,3 |
     tr -d \" |
     head -n 1)
   echo "${URL//[[:space:]]/}"
@@ -119,6 +118,9 @@ main() {
   echo "executable installed at ${EXE_DEST_FILE}"
   bye
 }
+
+#TODO check bash is used `readlink /proc/$$/exe`
+# because the script is not compatible with dash (default sh on ubuntu), other posix only shell,...
 
 #Stop execution on any error
 trap "bye" EXIT
