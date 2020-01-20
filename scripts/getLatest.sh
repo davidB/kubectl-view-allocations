@@ -109,10 +109,10 @@ main() {
   local OS=$(find_os)
   local SUFFIX=$(find_suffix $ARCH $OS)
   local FILE_URL=$(find_download_url $SUFFIX)
-  local FILE_PATH="/tmp/${GITHUB_USER}-${GITHUB_REPO}-latest-${SUFFIX}"
   if [ -z "${FILE_URL}" ]; then
-    fail "Did not find a release for your system: $OS $ARCH"
+    fail "Did not find a latest release for your system: $OS $ARCH ($SUFFIX)"
   fi
+  local FILE_PATH="/tmp/${GITHUB_USER}-${GITHUB_REPO}-latest-${SUFFIX}"
   download_file "${FILE_URL}" "${FILE_PATH}"
   install_file "${FILE_PATH}" "${EXE_DEST_FILE}"
   rm -Rf ${FILE_PATH}
