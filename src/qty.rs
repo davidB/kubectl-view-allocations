@@ -15,13 +15,14 @@ struct Scale {
 
 // should be sorted in DESC
 #[rustfmt::skip]
-static SCALES: [Scale;11] = [
+static SCALES: [Scale;12] = [
     Scale{ label:"Pi", base: 2, pow: 50},
     Scale{ label:"Ti", base: 2, pow: 40},
     Scale{ label:"Gi", base: 2, pow: 30},
     Scale{ label:"Mi", base: 2, pow: 20},
     Scale{ label:"Ki", base: 2, pow: 10},
-    Scale{ label:"P", base: 10, pow: 12},
+    Scale{ label:"P", base: 10, pow: 15},
+    Scale{ label:"T", base: 10, pow: 12},
     Scale{ label:"G", base: 10, pow: 9},
     Scale{ label:"M", base: 10, pow: 6},
     Scale{ label:"k", base: 10, pow: 3},
