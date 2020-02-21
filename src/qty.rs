@@ -122,9 +122,9 @@ impl Qty {
 impl FromStr for Qty {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (num_str, scale_str): (&str, &str) = match s
-            .find(|c: char| !c.is_digit(10) && c != 'E' && c != 'e' && c != '+' && c != '-')
-        {
+        let (num_str, scale_str): (&str, &str) = match s.find(|c: char| {
+            !c.is_digit(10) && c != 'E' && c != 'e' && c != '+' && c != '-' && c != '.'
+        }) {
             Some(pos) => (&s[..pos], &s[pos..]),
             None => (s, ""),
         };
@@ -141,8 +141,8 @@ impl std::fmt::Display for Qty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}{}",
-            (self.value as f64 / (f64::from(&self.scale) * 1000f64)) as i64,
+            "{:.1}{}",
+            (self.value as f64 / (f64::from(&self.scale) * 1000f64)),
             self.scale.label
         )
     }
@@ -250,21 +250,22 @@ mod tests {
     #[test]
     fn expectation_ok_for_adjust_scale() -> Result<(), Box<dyn std::error::Error>> {
         let cases = vec![
-            ("1k", "1k"),
-            ("10k", "10k"),
-            ("100k", "100k"),
-            ("999k", "999k"),
-            ("1000k", "1M"),
-            ("1999k", "1M"),
-            ("1Ki", "1Ki"),
-            ("10Ki", "10Ki"),
-            ("100Ki", "100Ki"),
-            ("1000Ki", "1000Ki"),
-            ("1024Ki", "1Mi"),
-            ("25641877504", "25G"),
-            ("1000m", "1"),
-            ("100m", "100m"),
-            ("1m", "1m"),
+            ("1k", "1.0k"),
+            ("10k", "10.0k"),
+            ("100k", "100.0k"),
+            ("999k", "999.0k"),
+            ("1000k", "1.0M"),
+            ("1999k", "2.0M"), //TODO 1.9M should be better ?
+            ("1Ki", "1.0Ki"),
+            ("10Ki", "10.0Ki"),
+            ("100Ki", "100.0Ki"),
+            ("1000Ki", "1000.0Ki"),
+            ("1024Ki", "1.0Mi"),
+            ("25641877504", "25.6G"),
+            ("1770653738944", "1.8T"),
+            ("1000m", "1.0"),
+            ("100m", "100.0m"),
+            ("1m", "1.0m"),
         ];
         for (input, expected) in cases {
             assert_that!(format!("{}", &Qty::from_str(input)?.adjust_scale()))
@@ -276,24 +277,25 @@ mod tests {
     #[test]
     fn test_display() -> Result<(), Box<dyn std::error::Error>> {
         let cases = vec![
-            "1k",
-            "10k",
-            "100k",
-            "999k",
-            "1000k",
-            "1999k",
-            "1Ki",
-            "10Ki",
-            "100Ki",
-            "1000Ki",
-            "1024Ki",
-            "25641877504",
-            "1000m",
-            "100m",
-            "1m",
+            ("1k", "1.0k"),
+            ("10k", "10.0k"),
+            ("100k", "100.0k"),
+            ("999k", "999.0k"),
+            ("1000k", "1000.0k"),
+            ("1999k", "1999.0k"),
+            ("1Ki", "1.0Ki"),
+            ("10Ki", "10.0Ki"),
+            ("100Ki", "100.0Ki"),
+            ("1000Ki", "1000.0Ki"),
+            ("1024Ki", "1024.0Ki"),
+            ("25641877504", "25641877504.0"),
+            ("1000m", "1000.0m"),
+            ("100m", "100.0m"),
+            ("1m", "1.0m"),
         ];
         for input in cases {
-            assert_that!(format!("{}", &Qty::from_str(input)?)).is_equal_to(input.to_string());
+            assert_that!(format!("{}", &Qty::from_str(input.0)?)).is_equal_to(input.1.to_string());
+            assert_that!(format!("{}", &Qty::from_str(input.1)?)).is_equal_to(input.1.to_string());
         }
         Ok(())
     }
