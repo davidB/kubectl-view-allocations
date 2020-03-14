@@ -11,6 +11,7 @@ use structopt::clap::arg_enum;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
+use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::{
     api::{Api, ListParams},
     client::APIClient,
@@ -131,14 +132,14 @@ async fn collect_from_nodes(
     resources: &mut Vec<Resource>,
     resource_names: &[String],
 ) -> Result<()> {
-    let api_nodes = Api::v1Node(client); //.within("default");
+    let api_nodes: Api<Node> = Api::all(client);
     let nodes = api_nodes
         .list(&ListParams::default())
         .await
         .with_context(|| format!("Failed to list nodes via k8s api"))?;
     for node in nodes.items {
         let location = Location {
-            node_name: Some(node.metadata.name.clone()),
+            node_name: node.metadata.and_then(|v| v.name),
             ..Location::default()
         };
         if let Some(als) = node.status.and_then(|v| v.allocatable) {
@@ -170,10 +171,10 @@ async fn collect_from_pods(
     resource_names: &[String],
     namespace: &Option<String>,
 ) -> Result<()> {
-    let api_pods = if let Some(ns) = namespace {
-        Api::v1Pod(client).within(ns)
+    let api_pods: Api<Pod> = if let Some(ns) = namespace {
+        Api::namespaced(client, &ns)
     } else {
-        Api::v1Pod(client)
+        Api::all(client)
     };
     let pods = api_pods
         .list(&ListParams::default())
@@ -186,26 +187,23 @@ async fn collect_from_pods(
             .unwrap_or(false)
     }) {
         let status = pod.status.as_ref();
+        let spec = pod.spec.as_ref();
         let node_name = status
             .and_then(|v| v.nominated_node_name.clone())
-            .or(pod.spec.node_name);
-        for (_, container) in pod
-            .spec
-            .containers
-            .into_iter()
-            .enumerate()
-            .filter(|(i, _)| {
-                status
-                    .and_then(|s| s.container_statuses.as_ref())
-                    .and_then(|v| v.get(*i).and_then(|v| v.state.as_ref()))
-                    .map(|s| s.running.is_some())
-                    .unwrap_or(true)
-            })
-        {
+            .or_else(|| spec.and_then(|m| m.node_name.clone()));
+        let containers = spec.map(|s| s.containers.clone()).unwrap_or(vec![]);
+        for (_, container) in containers.into_iter().enumerate().filter(|(i, _)| {
+            status
+                .and_then(|s| s.container_statuses.as_ref())
+                .and_then(|v| v.get(*i).and_then(|v| v.state.as_ref()))
+                .map(|s| s.running.is_some())
+                .unwrap_or(true)
+        }) {
+            let metadata = pod.metadata.as_ref();
             let location = Location {
                 node_name: node_name.clone(),
-                namespace: pod.metadata.namespace.clone(),
-                pod_name: Some(pod.metadata.name.clone()),
+                namespace: metadata.and_then(|v| v.namespace.clone()),
+                pod_name: metadata.and_then(|v| v.name.clone()),
                 container_name: Some(container.name.clone()),
             };
             for requirements in container.resources {
