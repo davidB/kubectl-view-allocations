@@ -153,15 +153,7 @@ impl PartialOrd for Qty {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let v1 = self.value; // f64::from(self);
         let v2 = other.value; // f64::from(other);
-        if v1 > v2 {
-            Some(Ordering::Greater)
-        } else if v1 < v2 {
-            Some(Ordering::Less)
-        // } else if (v1 - v2).abs() < std::f64::EPSILON {
-        //     Some(Ordering::Equal)
-        } else {
-            None
-        }
+        v1.partial_cmp(&v2)
     }
 }
 

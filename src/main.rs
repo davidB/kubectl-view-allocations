@@ -64,7 +64,7 @@ impl QtyOfUsage {
 }
 
 fn sum_by_usage(rsrcs: &[&Resource]) -> Option<QtyOfUsage> {
-    if rsrcs.len() > 0 {
+    if !rsrcs.is_empty() {
         let kind = rsrcs
             .get(0)
             .expect("group contains at least 1 element")
@@ -136,7 +136,7 @@ async fn collect_from_nodes(
     let nodes = api_nodes
         .list(&ListParams::default())
         .await
-        .with_context(|| format!("Failed to list nodes via k8s api"))?;
+        .with_context(|| "Failed to list nodes via k8s api".to_string())?;
     for node in nodes.items {
         let location = Location {
             node_name: node.metadata.and_then(|v| v.name),
@@ -179,7 +179,7 @@ async fn collect_from_pods(
     let pods = api_pods
         .list(&ListParams::default())
         .await
-        .with_context(|| format!("Failed to list pods via k8s api"))?;
+        .with_context(|| "Failed to list pods via k8s api".to_string())?;
     for pod in pods.items.into_iter().filter(|pod| {
         pod.status
             .as_ref()
@@ -191,7 +191,7 @@ async fn collect_from_pods(
         let node_name = status
             .and_then(|v| v.nominated_node_name.clone())
             .or_else(|| spec.and_then(|m| m.node_name.clone()));
-        let containers = spec.map(|s| s.containers.clone()).unwrap_or(vec![]);
+        let containers = spec.map(|s| s.containers.clone()).unwrap_or_else(|| vec![]);
         for (_, container) in containers.into_iter().enumerate().filter(|(i, _)| {
             status
                 .and_then(|s| s.container_statuses.as_ref())
@@ -206,7 +206,7 @@ async fn collect_from_pods(
                 pod_name: metadata.and_then(|v| v.name.clone()),
                 container_name: Some(container.name.clone()),
             };
-            for requirements in container.resources {
+            if let Some(requirements) = container.resources {
                 if let Some(r) = requirements.requests {
                     for request in r
                         .into_iter()
@@ -353,13 +353,13 @@ async fn load_kube_config() -> Result<config::Configuration> {
 async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     let config = load_kube_config()
         .await
-        .with_context(|| format!("failed to load kubectl config"))?;
+        .with_context(|| "failed to load kubectl config".to_string())?;
     let client = APIClient::new(config);
 
     let mut resources: Vec<Resource> = vec![];
     collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name)
         .await
-        .with_context(|| format!("failed to collect info from nodes"))?;
+        .with_context(|| "failed to collect info from nodes".to_string())?;
     collect_from_pods(
         client.clone(),
         &mut resources,
@@ -367,7 +367,7 @@ async fn do_main(cli_opts: &CliOpts) -> Result<()> {
         &cli_opts.namespace,
     )
     .await
-    .with_context(|| format!("failed to collect info from pods"))?;
+    .with_context(|| "failed to collect info from pods".to_string())?;
 
     let res = make_usages(&resources, &cli_opts.group_by);
     display_with_prettytable(&res, !&cli_opts.show_zero);
