@@ -12,11 +12,7 @@ use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
 use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::{
-    api::{Api, ListParams},
-    client::APIClient,
-    config,
-};
+use kube::api::{Api, ListParams};
 
 #[derive(Debug, Clone, Default)]
 struct Location {
@@ -128,7 +124,7 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
 }
 
 async fn collect_from_nodes(
-    client: APIClient,
+    client: kube::Client,
     resources: &mut Vec<Resource>,
     resource_names: &[String],
 ) -> Result<()> {
@@ -166,7 +162,7 @@ async fn collect_from_nodes(
 }
 
 async fn collect_from_pods(
-    client: APIClient,
+    client: kube::Client,
     resources: &mut Vec<Resource>,
     resource_names: &[String],
     namespace: &Option<String>,
@@ -335,7 +331,7 @@ async fn main() -> () {
     }
 }
 
-async fn load_kube_config() -> Result<config::Configuration> {
+async fn refresh_kube_config() -> Result<()> {
     //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
     use std::process::Command;
     let output = Command::new("kubectl")
@@ -345,16 +341,14 @@ async fn load_kube_config() -> Result<config::Configuration> {
     if !output.status.success() {
         return Err(anyhow!("`kubectl cluster-info` failed with: {:?}", &output));
     }
-    config::load_kube_config()
-        .await
-        .with_context(|| "failed to load kubeconfig")
+    Ok(())
 }
 
 async fn do_main(cli_opts: &CliOpts) -> Result<()> {
-    let config = load_kube_config()
+    let config = refresh_kube_config()
         .await
-        .with_context(|| "failed to load kubectl config".to_string())?;
-    let client = APIClient::new(config);
+        .with_context(|| "failed to refresh kubectl config".to_string())?;
+    let client = kube::Client::try_default().await?;
 
     let mut resources: Vec<Resource> = vec![];
     collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name)
