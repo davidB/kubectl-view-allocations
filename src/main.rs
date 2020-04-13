@@ -345,7 +345,7 @@ async fn refresh_kube_config() -> Result<()> {
 }
 
 async fn do_main(cli_opts: &CliOpts) -> Result<()> {
-    let config = refresh_kube_config()
+    refresh_kube_config()
         .await
         .with_context(|| "failed to refresh kubectl config".to_string())?;
     let client = kube::Client::try_default().await?;
