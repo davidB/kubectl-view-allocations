@@ -68,3 +68,5 @@ Cargo.lock
 .history
 
 # End of https://www.gitignore.io/api/git,rust,macos,visualstudiocode
+
+!Cargo.lock
