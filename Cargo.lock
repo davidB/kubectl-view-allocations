@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "kubectl-view-allocations"
-version = "0.7.3"
+version = "0.7.4-dev"
 dependencies = [
  "anyhow 1.0.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
