@@ -135,7 +135,7 @@ async fn collect_from_nodes(
         .with_context(|| "Failed to list nodes via k8s api".to_string())?;
     for node in nodes.items {
         let location = Location {
-            node_name: node.metadata.and_then(|v| v.name),
+            node_name: node.metadata.name,
             ..Location::default()
         };
         if let Some(als) = node.status.and_then(|v| v.allocatable) {
@@ -195,11 +195,11 @@ async fn collect_from_pods(
                 .map(|s| s.running.is_some())
                 .unwrap_or(true)
         }) {
-            let metadata = pod.metadata.as_ref();
+            let metadata = &pod.metadata;
             let location = Location {
                 node_name: node_name.clone(),
-                namespace: metadata.and_then(|v| v.namespace.clone()),
-                pod_name: metadata.and_then(|v| v.name.clone()),
+                namespace: metadata.namespace.clone(),
+                pod_name: metadata.name.clone(),
                 container_name: Some(container.name.clone()),
             };
             if let Some(requirements) = container.resources {
