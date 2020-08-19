@@ -2,6 +2,7 @@ mod qty;
 mod tree;
 // mod human_format;
 use anyhow::{anyhow, Context, Result};
+use chrono::prelude::*;
 use env_logger;
 use itertools::Itertools;
 use log::error;
@@ -386,14 +387,22 @@ async fn do_main(cli_opts: &CliOpts) -> Result<()> {
 fn display_as_csv(data: &[(Vec<String>, Option<QtyOfUsage>)], group_by: &[GroupBy]) {
     // print header
     println!(
-        "{},Requested,%Requested,Limit,%Limit,Allocatable,Free",
+        "Date,Kind,{},Requested,%Requested,Limit,%Limit,Allocatable,Free",
         group_by.iter().map(|x| x.to_string()).join(",")
     );
 
     // print data
     let empty = "".to_string();
+    let datetime = Utc::now().to_rfc3339();
     for (k, oqtys) in data {
         let mut row = vec![];
+        row.push(datetime.clone());
+        row.push(
+            group_by
+                .get(k.len() - 1)
+                .map(|x| x.to_string())
+                .unwrap_or_else(|| empty.clone()),
+        );
         for i in 0..group_by.len() {
             row.push(k.get(i).cloned().unwrap_or_else(|| empty.clone()));
         }
