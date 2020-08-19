@@ -612,7 +612,7 @@ dependencies = [
 
 [[package]]
 name = "kubectl-view-allocations"
-version = "0.8.2-dev"
+version = "0.8.2"
 dependencies = [
  "anyhow 1.0.32 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.15 (registry+https://github.com/rust-lang/crates.io-index)",
