@@ -44,7 +44,7 @@ cargo install kubectl-view-allocations
 ```txt
 kubectl-view-allocations -h
 
-kubectl-view-allocations 0.2.2-dev
+kubectl-view-allocations 0.8.0
 https://github.com/davidB/kubectl-view-allocations
 kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...)
 
@@ -57,9 +57,12 @@ FLAGS:
     -V, --version      Prints version information
 
 OPTIONS:
-    -g, --group-by <group-by>...              Group informations (hierarchicaly) (default: -g resource -g node -g pod)
-                                              [possible values: resource, node, pod]
+    -g, --group-by <group-by>...              Group informations hierarchically (default: -g resource -g node -g pod)
+                                              [possible values: resource, node, pod,
+                                              namespace]
     -n, --namespace <namespace>               Show only pods from this namespace
+    -o, --output <output>                     Output format [default: table]  [possible values: table,
+                                              csv]
     -r, --resource-name <resource-name>...    Filter resources shown by name(s), by default all resources are listed
 ```
 
@@ -122,6 +125,42 @@ OPTIONS:
   nvidia.com/gpu             9         75%      9     75%           12      3
   └─ dev                     9                  9
   pods                       0          0%      0      0%          1Ki    1Ki
+```
+
+### show as csv
+
+In this case value as expanded as float (with 2 decimal)
+
+```sh
+kubectl-view-allocations -o csv
+resource,node,pod,Requested,%Requested,Limit,%Limit,Allocatable,Free
+cpu,,,59.84,22%,104.10,38%,272.00,167.90
+cpu,node-gpu1,,2.31,19%,4.47,37%,12.00,7.53
+cpu,node-gpu1,zzz-b8bd56fbd-5x8vq,1.00,,2.00,,,
+cpu,node-gpu1,kube-flannel-ds-amd64-7dz9z,0.10,,0.10,,,
+cpu,node-gpu1,node-exporter-gpu-b4w7s,0.11,,0.22,,,
+cpu,node-gpu1,xxx-backend-7d84544458-46qnh,1.00,,2.00,,,
+cpu,node-gpu1,weave-scope-agent-bbdnz,0.10,,0.15,,,
+cpu,node-gpu2,,0.31,1%,0.47,2%,24.00,23.53
+cpu,node-gpu2,kube-flannel-ds-amd64-b5b4v,0.10,,0.10,,,
+cpu,node-gpu2,node-exporter-gpu-796jz,0.11,,0.22,,,
+cpu,node-gpu2,weave-scope-agent-8rhnd,0.10,,0.15,,,
+cpu,node-gpu3,,3.41,11%,6.67,21%,32.00,25.33
+...
+```
+
+It can be combined with "group-by" options.
+
+```sh
+kubectl-view-allocations -g resource -o csv
+resource,Requested,%Requested,Limit,%Limit,Allocatable,Free
+cpu,59.84,22%,104.10,38%,272.00,167.90
+ephemeral-storage,0.00,0%,0.00,0%,34462898618662.00,34462898618662.00
+hugepages-1Gi,0.00,,0.00,,,
+hugepages-2Mi,0.00,,0.00,,,
+memory,67989667840.00,9%,216094736384.00,30%,722318667776.00,506223931392.00
+nvidia.com/gpu,2.00,18%,2.00,18%,11.00,9.00
+pods,0.00,0%,0.00,0%,1540.00,1540.00
 ```
 
 ## Alternatives

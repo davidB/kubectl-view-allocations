@@ -285,6 +285,15 @@ impl GroupBy {
     }
 }
 
+arg_enum! {
+    #[derive(Debug, Eq, PartialEq)]
+    #[allow(non_camel_case_types)]
+    enum Output {
+        table,
+        csv,
+    }
+}
+
 #[derive(StructOpt, Debug)]
 #[structopt(
     global_settings(&[AppSettings::ColoredHelp, AppSettings::VersionlessSubcommands]),
@@ -306,6 +315,10 @@ struct CliOpts {
     /// Group informations hierarchically (default: -g resource -g node -g pod)
     #[structopt(short, long, possible_values = &GroupBy::variants(), case_insensitive = true)]
     group_by: Vec<GroupBy>,
+
+    /// Output format
+    #[structopt(short, long, possible_values = &Output::variants(), case_insensitive = true, default_value = "table")]
+    output: Output,
 }
 
 #[tokio::main]
@@ -364,8 +377,58 @@ async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     .with_context(|| "failed to collect info from pods".to_string())?;
 
     let res = make_usages(&resources, &cli_opts.group_by);
-    display_with_prettytable(&res, !&cli_opts.show_zero);
+    match &cli_opts.output {
+        Output::table => display_with_prettytable(&res, !&cli_opts.show_zero),
+        Output::csv => display_as_csv(&res, &cli_opts.group_by),
+    }
     Ok(())
+}
+fn display_as_csv(data: &[(Vec<String>, Option<QtyOfUsage>)], group_by: &[GroupBy]) {
+    // print header
+    println!(
+        "{},Requested,%Requested,Limit,%Limit,Allocatable,Free",
+        group_by.iter().map(|x| x.to_string()).join(",")
+    );
+
+    // print data
+    let empty = "".to_string();
+    for (k, oqtys) in data {
+        let mut row = vec![];
+        for i in 0..group_by.len() {
+            row.push(k.get(i).cloned().unwrap_or_else(|| empty.clone()));
+        }
+        if let Some(qtys) = oqtys {
+            if qtys.allocatable.is_zero() {
+                row.push(format!("{:.2}", f64::from(&qtys.requested)));
+                row.push(empty.clone());
+                row.push(format!("{:.2}", f64::from(&qtys.limit)));
+                row.push(empty.clone());
+                row.push(empty.clone());
+                row.push(empty.clone());
+            } else {
+                row.push(format!("{:.2}", f64::from(&qtys.requested)));
+                row.push(format!(
+                    "{:.0}%",
+                    qtys.requested.calc_percentage(&qtys.allocatable)
+                ));
+                row.push(format!("{:.2}", f64::from(&qtys.limit)));
+                row.push(format!(
+                    "{:.0}%",
+                    qtys.limit.calc_percentage(&qtys.allocatable)
+                ));
+                row.push(format!("{:.2}", f64::from(&qtys.allocatable)));
+                row.push(format!("{:.2}", f64::from(&qtys.calc_free())));
+            }
+        } else {
+            row.push(empty.clone());
+            row.push(empty.clone());
+            row.push(empty.clone());
+            row.push(empty.clone());
+            row.push(empty.clone());
+            row.push(empty.clone());
+        }
+        println!("{}", &row.join(","));
+    }
 }
 
 fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_full_zero: bool) {
