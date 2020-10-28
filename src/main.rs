@@ -162,6 +162,15 @@ async fn collect_from_nodes(
     Ok(())
 }
 
+fn is_scheduled(pod: &Pod) -> bool {
+    pod.status
+        .as_ref()
+        .and_then(|ps| ps.conditions.as_ref().map(|s| 
+            s.iter().any(|c| c.type_ == "PodScheduled" && c.status == "True")
+        ))
+        .unwrap_or(false)
+}
+
 async fn collect_from_pods(
     client: kube::Client,
     resources: &mut Vec<Resource>,
@@ -177,25 +186,14 @@ async fn collect_from_pods(
         .list(&ListParams::default())
         .await
         .with_context(|| "Failed to list pods via k8s api".to_string())?;
-    for pod in pods.items.into_iter().filter(|pod| {
-        pod.status
-            .as_ref()
-            .and_then(|ps| ps.phase.as_ref().map(|s| s == "Running"))
-            .unwrap_or(false)
-    }) {
+    for pod in pods.items.into_iter().filter(is_scheduled) {
         let status = pod.status.as_ref();
         let spec = pod.spec.as_ref();
         let node_name = status
             .and_then(|v| v.nominated_node_name.clone())
             .or_else(|| spec.and_then(|m| m.node_name.clone()));
         let containers = spec.map(|s| s.containers.clone()).unwrap_or_else(|| vec![]);
-        for (_, container) in containers.into_iter().enumerate().filter(|(i, _)| {
-            status
-                .and_then(|s| s.container_statuses.as_ref())
-                .and_then(|v| v.get(*i).and_then(|v| v.state.as_ref()))
-                .map(|s| s.running.is_some())
-                .unwrap_or(true)
-        }) {
+        for container in containers.into_iter(){
             let metadata = &pod.metadata;
             let location = Location {
                 node_name: node_name.clone(),
