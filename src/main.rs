@@ -187,11 +187,8 @@ async fn collect_from_pods(
         .await
         .with_context(|| "Failed to list pods via k8s api".to_string())?;
     for pod in pods.items.into_iter().filter(is_scheduled) {
-        let status = pod.status.as_ref();
         let spec = pod.spec.as_ref();
-        let node_name = status
-            .and_then(|v| v.nominated_node_name.clone())
-            .or_else(|| spec.and_then(|m| m.node_name.clone()));
+        let node_name = spec.and_then(|m| m.node_name.clone());
         let containers = spec.map(|s| s.containers.clone()).unwrap_or_else(|| vec![]);
         for container in containers.into_iter(){
             let metadata = &pod.metadata;
