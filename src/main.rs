@@ -47,11 +47,7 @@ struct QtyOfUsage {
 
 impl QtyOfUsage {
     pub fn calc_free(&self) -> Qty {
-        let total_used = if self.limit > self.requested {
-            &self.limit
-        } else {
-            &self.requested
-        };
+        let total_used = std::cmp::max(&self.limit, &self.requested);
         if self.allocatable > *total_used {
             &self.allocatable - total_used
         } else {
@@ -188,38 +184,18 @@ fn push_resources(
     Ok(())
 }
 
-fn add_resources(
+fn process_resources<F>(
     effective_resources: &mut BTreeMap<String, Qty>,
     resource_list: &BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>,
+    op: F,
 ) -> Result<()>
-{
-    for (key, value) in resource_list.iter()
-    {
-        let quantity = Qty::from_str(&(value).0)?;
-        // let new_quantity = effective_resources.get(key).map(|v| v + &quantity).unwrap_or(quantity);
-        // effective_resources.insert(key.clone(), new_quantity.clone());
-        if let Some(current_quantity) = effective_resources.get_mut(key){
-            *current_quantity += &quantity
-        } else {
-            effective_resources.insert(key.clone(), quantity.clone());
-        }
-    }
-    Ok(())
-}
-
-// TODO make this a generic op for add_resources
-fn max_resources(
-    effective_resources: &mut BTreeMap<String, Qty>,
-    resource_list: &BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>,
-) -> Result<()>
+where F: Fn(Qty, Qty) -> Qty
 {
     for (key, value) in resource_list.iter()
     {
         let quantity = Qty::from_str(&(value).0)?;
         if let Some(current_quantity) = effective_resources.get_mut(key){
-            if &quantity > current_quantity { 
-                *current_quantity = quantity
-            }
+            *current_quantity = op(current_quantity.clone(), quantity).clone();
         } else {
             effective_resources.insert(key.clone(), quantity.clone());
         }
@@ -259,10 +235,10 @@ async fn collect_from_pods(
         for container in containers.into_iter(){
             if let Some(requirements) = container.resources {
                 if let Some(r) = requirements.requests {
-                    add_resources(&mut resource_requests, &r)?
+                    process_resources(&mut resource_requests, &r, std::ops::Add::add)?
                 }
                 if let Some(l) = requirements.limits {
-                    add_resources(&mut resource_limits, &l)?
+                    process_resources(&mut resource_limits, &l, std::ops::Add::add)?
                 }
             }
         }
@@ -271,17 +247,17 @@ async fn collect_from_pods(
         for container in init_containers.into_iter(){
             if let Some(requirements) = container.resources {
                 if let Some(r) = requirements.requests {
-                    max_resources(&mut resource_requests, &r)?
+                    process_resources(&mut resource_requests, &r, std::cmp::max)?
                 }
                 if let Some(l) = requirements.limits {
-                    max_resources(&mut resource_limits, &l)?
+                    process_resources(&mut resource_limits, &l, std::cmp::max)?
                 }
             }
         }
         // handler overhead (add to both requests and limits)
         if let Some(overhead) = spec.and_then(|s| s.overhead.as_ref()) {
-            add_resources(&mut resource_requests, overhead)?;
-            add_resources(&mut resource_limits, overhead)?
+            process_resources(&mut resource_requests, &overhead, std::ops::Add::add)?;
+            process_resources(&mut resource_limits, &overhead, std::ops::Add::add)?;
         }
         // push these onto resources
         push_resources(resources, &location, ResourceUsage::Requested, &resource_requests)?;

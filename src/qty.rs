@@ -157,6 +157,15 @@ impl PartialOrd for Qty {
     }
 }
 
+impl Ord for Qty {
+    //TODO optimize accuracy with big number
+    fn cmp(&self, other: &Self) -> Ordering {
+        let v1 = self.value; // f64::from(self);
+        let v2 = other.value; // f64::from(other);
+        v1.partial_cmp(&v2).unwrap() // i64 should always be comparable (no NaNs or anything crazy like that)
+    }
+}
+
 fn select_scale_for_add(v1: &Qty, v2: &Qty) -> Scale {
     if v2.value == 0 {
         v1.scale.clone()
