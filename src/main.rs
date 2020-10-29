@@ -60,6 +60,34 @@ impl QtyOfUsage {
     }
 }
 
+fn add_resource(
+    resource_names: &[String], 
+    resources: &mut Vec<Resource>, 
+    location: &Location, 
+    usage: ResourceUsage, 
+    pod_resources_block: &std::collections::BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>)
+    -> Result<()>
+{
+    for limit in pod_resources_block
+        .into_iter()
+        .filter(|a| accept_resource(&a.0, resource_names))
+    {
+        let quantity = Qty::from_str(&(limit.1).0).with_context(|| {
+            format!(
+                "Failed to read Qty of location {:?} / limit {:?}",
+                &location, &limit
+            )
+        })?;
+        resources.push(Resource {
+            kind: limit.0.to_string(),
+            usage: usage.clone(),
+            quantity,
+            location: location.clone(),
+        });
+    }
+    Ok(())
+}
+
 fn sum_by_usage(rsrcs: &[&Resource]) -> Option<QtyOfUsage> {
     if !rsrcs.is_empty() {
         let kind = rsrcs
@@ -140,23 +168,7 @@ async fn collect_from_nodes(
             ..Location::default()
         };
         if let Some(als) = node.status.and_then(|v| v.allocatable) {
-            for a in als
-                .into_iter()
-                .filter(|a| accept_resource(&a.0, resource_names))
-            {
-                let quantity = Qty::from_str(&(a.1).0).with_context(|| {
-                    format!(
-                        "Failed to read Qty of location {:?} / available {:?}",
-                        &location, &a
-                    )
-                })?;
-                resources.push(Resource {
-                    kind: a.0,
-                    usage: ResourceUsage::Allocatable,
-                    quantity,
-                    location: location.clone(),
-                });
-            }
+            add_resource(resource_names, resources, &location, ResourceUsage::Allocatable, &als)?
         }
     }
     Ok(())
@@ -188,10 +200,11 @@ async fn collect_from_pods(
         .with_context(|| "Failed to list pods via k8s api".to_string())?;
     for pod in pods.items.into_iter().filter(is_scheduled) {
         let spec = pod.spec.as_ref();
-        let node_name = spec.and_then(|m| m.node_name.clone());
-        let containers = spec.map(|s| s.containers.clone()).unwrap_or_else(|| vec![]);
+        let node_name = spec.and_then(|s| s.node_name.clone());
+        let metadata = &pod.metadata;
+        // handle regular containers
+        let containers = spec.map(|s| s.containers.clone()).unwrap_or_default();
         for container in containers.into_iter(){
-            let metadata = &pod.metadata;
             let location = Location {
                 node_name: node_name.clone(),
                 namespace: metadata.namespace.clone(),
@@ -200,44 +213,43 @@ async fn collect_from_pods(
             };
             if let Some(requirements) = container.resources {
                 if let Some(r) = requirements.requests {
-                    for request in r
-                        .into_iter()
-                        .filter(|a| accept_resource(&a.0, resource_names))
-                    {
-                        let quantity = Qty::from_str(&(request.1).0).with_context(|| {
-                            format!(
-                                "Failed to read Qty of location {:?} / request {:?}",
-                                &location, &request
-                            )
-                        })?;
-                        resources.push(Resource {
-                            kind: request.0,
-                            usage: ResourceUsage::Requested,
-                            quantity,
-                            location: location.clone(),
-                        });
-                    }
+                    add_resource(resource_names, resources, &location, ResourceUsage::Requested, &r)?
                 }
                 if let Some(l) = requirements.limits {
-                    for limit in l
-                        .into_iter()
-                        .filter(|a| accept_resource(&a.0, resource_names))
-                    {
-                        let quantity = Qty::from_str(&(limit.1).0).with_context(|| {
-                            format!(
-                                "Failed to read Qty of location {:?} / limit {:?}",
-                                &location, &limit
-                            )
-                        })?;
-                        resources.push(Resource {
-                            kind: limit.0,
-                            usage: ResourceUsage::Limit,
-                            quantity,
-                            location: location.clone(),
-                        });
-                    }
+                    add_resource(resource_names, resources, &location, ResourceUsage::Limit, &l)?
                 }
             }
+        }
+        // handle initContainers
+        let init_containers = spec.and_then(|s| s.init_containers.clone()).unwrap_or_default();
+        for container in init_containers.into_iter(){
+            let location = Location {
+                node_name: node_name.clone(),
+                namespace: metadata.namespace.clone(),
+                pod_name: metadata.name.clone(),
+                container_name: Some(container.name.clone()),
+            };
+            if let Some(requirements) = container.resources {
+                if let Some(r) = requirements.requests {
+                    // TODO do max resource for this pod
+                    add_resource(resource_names, resources, &location, ResourceUsage::Requested, &r)?
+                }
+                if let Some(l) = requirements.limits {
+                    // TODO do max resource for this pod
+                    add_resource(resource_names, resources, &location, ResourceUsage::Limit, &l)?
+                }
+            }
+        }
+        // handler overhead (add to both requests and limits)
+        if let Some(overhead) = spec.and_then(|s| s.overhead.as_ref()) {
+            let location = Location {
+                node_name: node_name.clone(),
+                namespace: metadata.namespace.clone(),
+                pod_name: metadata.name.clone(),
+                container_name: None, // This overhead is pod-wide, not container specific
+            };
+            add_resource(resource_names, resources, &location, ResourceUsage::Requested, &overhead)?;
+            add_resource(resource_names, resources, &location, ResourceUsage::Limit, &overhead)?
         }
     }
     Ok(())
