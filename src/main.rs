@@ -8,6 +8,7 @@ use itertools::Itertools;
 use log::error;
 use qty::Qty;
 use std::str::FromStr;
+use std::collections::BTreeMap;
 use structopt::clap::arg_enum;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
@@ -20,7 +21,6 @@ struct Location {
     node_name: Option<String>,
     namespace: Option<String>,
     pod_name: Option<String>,
-    container_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -60,34 +60,6 @@ impl QtyOfUsage {
     }
 }
 
-fn add_resource(
-    resource_names: &[String], 
-    resources: &mut Vec<Resource>, 
-    location: &Location, 
-    usage: ResourceUsage, 
-    pod_resources_block: &std::collections::BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>)
-    -> Result<()>
-{
-    for limit in pod_resources_block
-        .into_iter()
-        .filter(|a| accept_resource(&a.0, resource_names))
-    {
-        let quantity = Qty::from_str(&(limit.1).0).with_context(|| {
-            format!(
-                "Failed to read Qty of location {:?} / limit {:?}",
-                &location, &limit
-            )
-        })?;
-        resources.push(Resource {
-            kind: limit.0.to_string(),
-            usage: usage.clone(),
-            quantity,
-            location: location.clone(),
-        });
-    }
-    Ok(())
-}
-
 fn sum_by_usage(rsrcs: &[&Resource]) -> Option<QtyOfUsage> {
     if !rsrcs.is_empty() {
         let kind = rsrcs
@@ -114,9 +86,9 @@ fn sum_by_usage(rsrcs: &[&Resource]) -> Option<QtyOfUsage> {
     }
 }
 
-fn make_usages(rsrcs: &[Resource], group_by: &[GroupBy]) -> Vec<(Vec<String>, Option<QtyOfUsage>)> {
+fn make_usages(rsrcs: &[Resource], group_by: &[GroupBy], resource_names: &[String]) -> Vec<(Vec<String>, Option<QtyOfUsage>)> {
     let group_by_fct = group_by.iter().map(GroupBy::to_fct).collect::<Vec<_>>();
-    let mut out = make_group_x_usage(&(rsrcs.iter().collect::<Vec<_>>()), &[], &group_by_fct, 0);
+    let mut out = make_group_x_usage(&(rsrcs.iter().filter(|a| accept_resource(&a.kind, resource_names)).collect::<Vec<_>>()), &[], &group_by_fct, 0);
     out.sort_by_key(|i| i.0.clone());
     out
 }
@@ -155,7 +127,6 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
 async fn collect_from_nodes(
     client: kube::Client,
     resources: &mut Vec<Resource>,
-    resource_names: &[String],
 ) -> Result<()> {
     let api_nodes: Api<Node> = Api::all(client);
     let nodes = api_nodes
@@ -168,7 +139,22 @@ async fn collect_from_nodes(
             ..Location::default()
         };
         if let Some(als) = node.status.and_then(|v| v.allocatable) {
-            add_resource(resource_names, resources, &location, ResourceUsage::Allocatable, &als)?
+            // add_resource(resources, &location, ResourceUsage::Allocatable, &als)?
+            for (kind, value) in als.iter()
+            {
+                let quantity = Qty::from_str(&(value).0).with_context(|| {
+                    format!(
+                        "Failed to read Qty of location {:?} / {:?} {:?}={:?}",
+                        &location, ResourceUsage::Allocatable, kind, &value
+                    )
+                })?;
+                resources.push(Resource {
+                    kind: kind.clone(),
+                    usage: ResourceUsage::Allocatable,
+                    quantity,
+                    location: location.clone(),
+                });
+            }
         }
     }
     Ok(())
@@ -183,10 +169,67 @@ fn is_scheduled(pod: &Pod) -> bool {
         .unwrap_or(false)
 }
 
+fn push_resources(
+    resources: &mut Vec<Resource>, 
+    location: &Location, 
+    usage: ResourceUsage, 
+    resource_list: &BTreeMap<String, Qty>)
+    -> Result<()>
+{
+    for (key, quantity) in resource_list.iter()
+    {
+        resources.push(Resource {
+            kind: key.clone(),
+            usage: usage.clone(),
+            quantity: quantity.clone(),
+            location: location.clone(),
+        });
+    }
+    Ok(())
+}
+
+fn add_resources(
+    effective_resources: &mut BTreeMap<String, Qty>,
+    resource_list: &BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>,
+) -> Result<()>
+{
+    for (key, value) in resource_list.iter()
+    {
+        let quantity = Qty::from_str(&(value).0)?;
+        // let new_quantity = effective_resources.get(key).map(|v| v + &quantity).unwrap_or(quantity);
+        // effective_resources.insert(key.clone(), new_quantity.clone());
+        if let Some(current_quantity) = effective_resources.get_mut(key){
+            *current_quantity += &quantity
+        } else {
+            effective_resources.insert(key.clone(), quantity.clone());
+        }
+    }
+    Ok(())
+}
+
+// TODO make this a generic op for add_resources
+fn max_resources(
+    effective_resources: &mut BTreeMap<String, Qty>,
+    resource_list: &BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>,
+) -> Result<()>
+{
+    for (key, value) in resource_list.iter()
+    {
+        let quantity = Qty::from_str(&(value).0)?;
+        if let Some(current_quantity) = effective_resources.get_mut(key){
+            if &quantity > current_quantity { 
+                *current_quantity = quantity
+            }
+        } else {
+            effective_resources.insert(key.clone(), quantity.clone());
+        }
+    }
+    Ok(())
+}
+
 async fn collect_from_pods(
     client: kube::Client,
     resources: &mut Vec<Resource>,
-    resource_names: &[String],
     namespace: &Option<String>,
 ) -> Result<()> {
     let api_pods: Api<Pod> = if let Some(ns) = namespace {
@@ -202,55 +245,47 @@ async fn collect_from_pods(
         let spec = pod.spec.as_ref();
         let node_name = spec.and_then(|s| s.node_name.clone());
         let metadata = &pod.metadata;
+        let location = Location {
+            node_name: node_name.clone(),
+            namespace: metadata.namespace.clone(),
+            pod_name: metadata.name.clone(),
+        };
+        // compute the effective resource usage
+        // see https://kubernetes.io/docs/concepts/workloads/pods/init-containers/#resources
+        let mut resource_requests: BTreeMap<String, Qty> = BTreeMap::new();
+        let mut resource_limits: BTreeMap<String, Qty> = BTreeMap::new();
         // handle regular containers
         let containers = spec.map(|s| s.containers.clone()).unwrap_or_default();
         for container in containers.into_iter(){
-            let location = Location {
-                node_name: node_name.clone(),
-                namespace: metadata.namespace.clone(),
-                pod_name: metadata.name.clone(),
-                container_name: Some(container.name.clone()),
-            };
             if let Some(requirements) = container.resources {
                 if let Some(r) = requirements.requests {
-                    add_resource(resource_names, resources, &location, ResourceUsage::Requested, &r)?
+                    add_resources(&mut resource_requests, &r)?
                 }
                 if let Some(l) = requirements.limits {
-                    add_resource(resource_names, resources, &location, ResourceUsage::Limit, &l)?
+                    add_resources(&mut resource_limits, &l)?
                 }
             }
         }
         // handle initContainers
         let init_containers = spec.and_then(|s| s.init_containers.clone()).unwrap_or_default();
         for container in init_containers.into_iter(){
-            let location = Location {
-                node_name: node_name.clone(),
-                namespace: metadata.namespace.clone(),
-                pod_name: metadata.name.clone(),
-                container_name: Some(container.name.clone()),
-            };
             if let Some(requirements) = container.resources {
                 if let Some(r) = requirements.requests {
-                    // TODO do max resource for this pod
-                    add_resource(resource_names, resources, &location, ResourceUsage::Requested, &r)?
+                    max_resources(&mut resource_requests, &r)?
                 }
                 if let Some(l) = requirements.limits {
-                    // TODO do max resource for this pod
-                    add_resource(resource_names, resources, &location, ResourceUsage::Limit, &l)?
+                    max_resources(&mut resource_limits, &l)?
                 }
             }
         }
         // handler overhead (add to both requests and limits)
         if let Some(overhead) = spec.and_then(|s| s.overhead.as_ref()) {
-            let location = Location {
-                node_name: node_name.clone(),
-                namespace: metadata.namespace.clone(),
-                pod_name: metadata.name.clone(),
-                container_name: None, // This overhead is pod-wide, not container specific
-            };
-            add_resource(resource_names, resources, &location, ResourceUsage::Requested, &overhead)?;
-            add_resource(resource_names, resources, &location, ResourceUsage::Limit, &overhead)?
+            add_resources(&mut resource_requests, overhead)?;
+            add_resources(&mut resource_limits, overhead)?
         }
+        // push these onto resources
+        push_resources(resources, &location, ResourceUsage::Requested, &resource_requests)?;
+        push_resources(resources, &location, ResourceUsage::Limit, &resource_limits)?;
     }
     Ok(())
 }
@@ -320,7 +355,7 @@ struct CliOpts {
     #[structopt(short, long)]
     resource_name: Vec<String>,
 
-    /// Group informations hierarchically (default: -g resource -g node -g pod)
+    /// Group information hierarchically (default: -g resource -g node -g pod)
     #[structopt(short, long, possible_values = &GroupBy::variants(), case_insensitive = true)]
     group_by: Vec<GroupBy>,
 
@@ -372,19 +407,18 @@ async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     let client = kube::Client::try_default().await?;
 
     let mut resources: Vec<Resource> = vec![];
-    collect_from_nodes(client.clone(), &mut resources, &cli_opts.resource_name)
+    collect_from_nodes(client.clone(), &mut resources)
         .await
         .with_context(|| "failed to collect info from nodes".to_string())?;
     collect_from_pods(
         client.clone(),
         &mut resources,
-        &cli_opts.resource_name,
         &cli_opts.namespace,
     )
     .await
     .with_context(|| "failed to collect info from pods".to_string())?;
 
-    let res = make_usages(&resources, &cli_opts.group_by);
+    let res = make_usages(&resources, &cli_opts.group_by, &cli_opts.resource_name);
     match &cli_opts.output {
         Output::table => display_with_prettytable(&res, !&cli_opts.show_zero),
         Output::csv => display_as_csv(&res, &cli_opts.group_by),
