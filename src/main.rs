@@ -515,9 +515,9 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
                 };
                 Row::new(vec![
                     Cell::new(&column0),
-                    Cell::new(&format!("{}", qtys.requested)).style_spec(style),
+                    Cell::new(&format!("{}", qtys.requested.adjust_scale())).style_spec(style),
                     Cell::new("").style_spec(style),
-                    Cell::new(&format!("{}", qtys.limit)).style_spec(style),
+                    Cell::new(&format!("{}", qtys.limit.adjust_scale())).style_spec(style),
                     Cell::new("").style_spec(style),
                     Cell::new("").style_spec(style),
                     Cell::new("").style_spec(style),
@@ -525,9 +525,9 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
             } else {
                 row![
                     &column0,
-                    r-> &format!("{}", qtys.requested),
+                    r-> &format!("{}", qtys.requested.adjust_scale()),
                     r-> &format!("{:4.0}%", qtys.requested.calc_percentage(&qtys.allocatable)),
-                    r-> &format!("{}", qtys.limit),
+                    r-> &format!("{}", qtys.limit.adjust_scale()),
                     r-> &format!("{:4.0}%", qtys.limit.calc_percentage(&qtys.allocatable)),
                     r-> &format!("{}", qtys.allocatable.adjust_scale()),
                     r-> &format!("{}", qtys.calc_free().adjust_scale()),
