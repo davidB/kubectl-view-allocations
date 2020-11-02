@@ -1,6 +1,6 @@
 [package]
 name = "kubectl-view-allocations"
-version = "0.8.3-dev"
+version = "0.9.0"
 authors = ["David Bernard"]
 edition = "2018"
 description = "kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...)"
