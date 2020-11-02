@@ -1,5 +1,5 @@
 pre-release-commit-message=":rocket: (cargo-release) version {{version}}"
-pro-release-commit-message=":construction: (cargo-release) start next development iteration {{next_version}}"
+post-release-commit-message=":construction: (cargo-release) start next development iteration {{next_version}}"
 tag-prefix=""
 tag-name="{{prefix}}{{version}}"
 tag-message=":bookmark: {{version}}"
