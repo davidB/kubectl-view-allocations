@@ -22,7 +22,7 @@ serde_json = "1.0.60"
 itertools = "0.9.0"
 prettytable-rs = { version = "0.8.0", default-features = false}
 structopt = "0.3.21"
-openssl = { version = "0.10.30", features = ["vendored"] }
+openssl = { version = "0.10.32", features = ["vendored"] }
 chrono = "0.4.19"
 
 [dev-dependencies]
