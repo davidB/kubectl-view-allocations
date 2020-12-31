@@ -507,7 +507,7 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
         .padding(1, 1)
         .build();
     table.set_format(format);
-    table.set_titles(row![bl->"Resource", br->"Requested", br->"%Requested", br->"Limit",  br->"%Limit", br->"Allocatable", br->"Free"]);
+    table.set_titles(row![bl->"Resource", br->"Requested", br->"Limit",  br->"Allocatable", br->"Free"]);
     let data2 = data
         .iter()
         .filter(|d| {
@@ -537,19 +537,15 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
                 Row::new(vec![
                     Cell::new(&column0),
                     Cell::new(&format!("{}", qtys.requested.adjust_scale())).style_spec(style),
-                    Cell::new("").style_spec(style),
                     Cell::new(&format!("{}", qtys.limit.adjust_scale())).style_spec(style),
-                    Cell::new("").style_spec(style),
                     Cell::new("").style_spec(style),
                     Cell::new("").style_spec(style),
                 ])
             } else {
                 row![
                     &column0,
-                    r-> &format!("{}", qtys.requested.adjust_scale()),
-                    r-> &format!("{:4.0}%", qtys.requested.calc_percentage(&qtys.allocatable)),
-                    r-> &format!("{}", qtys.limit.adjust_scale()),
-                    r-> &format!("{:4.0}%", qtys.limit.calc_percentage(&qtys.allocatable)),
+                    r-> &format!("{} ({:.0}%)", qtys.requested.adjust_scale(), qtys.requested.calc_percentage(&qtys.allocatable)),
+                    r-> &format!("{} ({:.0}%)", qtys.limit.adjust_scale(), qtys.limit.calc_percentage(&qtys.allocatable)),
                     r-> &format!("{}", qtys.allocatable.adjust_scale()),
                     r-> &format!("{}", qtys.calc_free().adjust_scale()),
                 ]
@@ -557,8 +553,6 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
         } else {
             row![
                 &column0,
-                r-> "",
-                r-> "",
                 r-> "",
                 r-> "",
                 r-> "",
