@@ -544,8 +544,8 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
             } else {
                 row![
                     &column0,
-                    r-> &format!("{} ({:.0}%)", qtys.requested.adjust_scale(), qtys.requested.calc_percentage(&qtys.allocatable)),
-                    r-> &format!("{} ({:.0}%)", qtys.limit.adjust_scale(), qtys.limit.calc_percentage(&qtys.allocatable)),
+                    r-> &format!("({:.0}%) {}", qtys.requested.calc_percentage(&qtys.allocatable), qtys.requested.adjust_scale()),
+                    r-> &format!("({:.0}%) {}", qtys.limit.calc_percentage(&qtys.allocatable), qtys.limit.adjust_scale()),
                     r-> &format!("{}", qtys.allocatable.adjust_scale()),
                     r-> &format!("{}", qtys.calc_free().adjust_scale()),
                 ]
