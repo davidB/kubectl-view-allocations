@@ -214,6 +214,13 @@ fn push_resources(
             location: location.clone(),
         });
     }
+    // add a "pods" resource as well
+    resources.push(Resource {
+        kind: "pods".to_string(),
+        usage: usage.clone(),
+        quantity: Qty::from_str("1")?,
+        location: location.clone(),
+    });
     Ok(())
 }
 
