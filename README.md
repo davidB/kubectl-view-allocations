@@ -14,10 +14,8 @@
 
 Columns displayed :
 
-- `Requested` : Quantity of resources requested by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running.
-- `%Requested` : Percentage of resources requested over what is allocatable in the group.
-- `Limit` : Quantity of resources max (limit) requestable by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running.
-- `%Limit` : Percentage of resources max / limit over what is allocatable in the group.
+- `Requested` : Quantity of resources requested by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running. With percentage of resources requested over what is allocatable in the group.
+- `Limit` : Quantity of resources max (limit) requestable by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running. With percentage of resources max / limit over what is allocatable in the group.
 - `Allocatable` : Allocatable resources defined (or detected) on nodes.
 - `Free` : `Allocatable - max (Limit, Requested)`
 
@@ -44,7 +42,7 @@ cargo install kubectl-view-allocations
 ```txt
 kubectl-view-allocations -h
 
-kubectl-view-allocations 0.8.0
+kubectl-view-allocations 0.10.0
 https://github.com/davidB/kubectl-view-allocations
 kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...)
 
@@ -57,7 +55,7 @@ FLAGS:
     -V, --version      Prints version information
 
 OPTIONS:
-    -g, --group-by <group-by>...              Group informations hierarchically (default: -g resource -g node -g pod)
+    -g, --group-by <group-by>...              Group information hierarchically (default: -g resource -g node -g pod)
                                               [possible values: resource, node, pod,
                                               namespace]
     -n, --namespace <namespace>               Show only pods from this namespace
@@ -72,20 +70,20 @@ OPTIONS:
 
 > kubectl-view-allocations -r gpu
 
- Resource                                   Requested  %Requested  Limit  %Limit  Allocatable  Free
-  nvidia.com/gpu                                    7         58%      7     58%           12     5
-  ├─ node-gpu1                                      1         50%      1     50%            2     1
-  │  └─ xxxx-784dd998f4-zt9dh                       1                  1
-  ├─ node-gpu2                                      0          0%      0      0%            2     2
-  ├─ node-gpu3                                      0          0%      0      0%            2     2
-  ├─ node-gpu4                                      1         50%      1     50%            2     1
-  │  └─ aaaa-1571819245-5ql82                       1                  1
-  ├─ node-gpu5                                      2        100%      2    100%            2     0
-  │  ├─ bbbb-1571738839-dfkhn                       1                  1
-  │  └─ bbbb-1571738888-52c4w                       1                  1
-  └─ node-gpu6                                      2        100%      2    100%            2     0
-     ├─ bbbb-1571738688-vlxng                       1                  1
-     └─ cccc-1571745684-7k6bn                       1                  1
+ Resource                   Requested       Limit  Allocatable  Free 
+  nvidia.com/gpu           (71%) 10.0  (71%) 10.0         14.0   4.0 
+  ├─ node-gpu1               (0%) 0.0    (0%) 0.0          2.0   2.0 
+  ├─ node-gpu2               (0%) 0.0    (0%) 0.0          2.0   2.0 
+  ├─ node-gpu3             (100%) 2.0  (100%) 2.0          2.0   0.0 
+  │  └─ fah-gpu-cpu-d29sc         2.0         2.0                    
+  ├─ node-gpu4             (100%) 2.0  (100%) 2.0          2.0   0.0 
+  │  └─ fah-gpu-cpu-hkg59         2.0         2.0                    
+  ├─ node-gpu5             (100%) 2.0  (100%) 2.0          2.0   0.0 
+  │  └─ fah-gpu-cpu-nw9fc         2.0         2.0                    
+  ├─ node-gpu6             (100%) 2.0  (100%) 2.0          2.0   0.0 
+  │  └─ fah-gpu-cpu-gtwsf         2.0         2.0                    
+  └─ node-gpu7             (100%) 2.0  (100%) 2.0          2.0   0.0 
+     └─ fah-gpu-cpu-x7zfb         2.0         2.0    
 ```
 
 ### overview only
@@ -93,12 +91,12 @@ OPTIONS:
 ```sh
 > kubectl-view-allocations -g resource
 
- Resource            Requested  %Requested  Limit  %Limit  Allocatable   Free
-  cpu                       11          6%     56     28%          200    144
-  ephemeral-storage          0          0%      0      0%          5Ti    5Ti
-  memory                  25Gi          5%  164Gi     34%        485Gi  320Gi
-  nvidia.com/gpu             9         75%      9     75%           12      3
-  pods                       0          0%      0      0%          1Ki    1Ki
+ Resource              Requested          Limit  Allocatable     Free 
+  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9 
+  ephemeral-storage     (0%) 0.0       (0%) 0.0        38.4T    38.4T 
+  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi 
+  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0 
+  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k 
 ```
 
 ### group by namespaces
@@ -106,25 +104,44 @@ OPTIONS:
 ```sh
 > kubectl-view-allocations -g namespace
 
- Resource            Requested  %Requested  Limit  %Limit  Allocatable   Free
-  cpu                       11          6%     56     28%          200    144
-  ├─ default                 2                 28
-  └─ dev                     9                 28
-  ephemeral-storage          0          0%      0      0%          5Ti    5Ti
-  memory                  25Gi          5%  164Gi     34%        485Gi  320Gi
-  ├─ cert-manager         96Mi              256Mi
-  ├─ default               4Gi               76Gi
-  ├─ dev                  13Gi               77Gi
-  ├─ dns-external        280Mi              680Mi
-  ├─ docs                256Mi              384Mi
-  ├─ ingress-nginx       512Mi                2Gi
-  ├─ kube-system         640Mi              840Mi
-  ├─ loki                  1Gi                1Gi
-  ├─ monitoring            3Gi                3Gi
-  └─ weave                 1Gi                1Gi
-  nvidia.com/gpu             9         75%      9     75%           12      3
-  └─ dev                     9                  9
-  pods                       0          0%      0      0%          1Ki    1Ki
+ Resource              Requested          Limit  Allocatable     Free 
+  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9 
+  ├─ default                42.1           57.4                       
+  ├─ dev                     5.3          102.1                       
+  ├─ dns-external         200.0m            0.0                       
+  ├─ docs                 150.0m         600.0m                       
+  ├─ ingress-nginx        200.0m            1.0                       
+  ├─ kube-system             2.1            1.4                       
+  ├─ loki                    1.2            2.4                       
+  ├─ monitoring              3.5            7.0                       
+  ├─ sharelatex           700.0m            2.4                       
+  └─ weave                   1.3            1.8                       
+  ephemeral-storage     (0%) 0.0       (0%) 0.0        38.4T    38.4T 
+  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi 
+  ├─ default              34.6Gi         60.0Gi                       
+  ├─ dev                   5.3Gi         22.1Gi                       
+  ├─ dns-external        140.0Mi        340.0Mi                       
+  ├─ docs                448.0Mi        768.0Mi                       
+  ├─ ingress-nginx       256.0Mi          1.0Gi                       
+  ├─ kube-system         840.0Mi          1.0Gi                       
+  ├─ loki                  1.5Gi          1.6Gi                       
+  ├─ monitoring            5.9Gi          5.7Gi                       
+  ├─ sharelatex            2.5Gi          7.0Gi                       
+  └─ weave                 1.3Gi          1.8Gi                       
+  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0 
+  └─ dev                    10.0           10.0                       
+  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k 
+  ├─ cert-manager            3.0            3.0                       
+  ├─ default                13.0           13.0                       
+  ├─ dev                     9.0            9.0                       
+  ├─ dns-external            2.0            2.0                       
+  ├─ docs                    8.0            8.0                       
+  ├─ ingress-nginx           2.0            2.0                       
+  ├─ kube-system            43.0           43.0                       
+  ├─ loki                   12.0           12.0                       
+  ├─ monitoring             38.0           38.0                       
+  ├─ sharelatex              3.0            3.0                       
+  └─ weave                  14.0           14.0   
 ```
 
 ### show as csv
