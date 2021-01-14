@@ -343,6 +343,10 @@ impl GroupBy {
     }
 
     fn extract_pod_name(e: &Resource) -> Option<String> {
+        // We do not need to display "pods" resource types when grouping by pods
+        if e.kind == "pods" {
+            return None
+        }
         e.location.pod_name.clone()
     }
 
