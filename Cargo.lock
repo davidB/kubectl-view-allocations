@@ -710,10 +710,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "kube"
-version = "0.47.0"
+name = "k8s-openapi"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25bb7bdbc1449790093a734b06a0bca7493395694f6e6e6f21e8006108085b3e"
+checksum = "bcc1f973542059e6d5a6d63de6a9539d0ec784f82b2327f3c1915d33200bc6a4"
+dependencies = [
+ "base64",
+ "bytes 1.0.0",
+ "chrono",
+ "serde",
+ "serde-value",
+ "serde_json",
+]
+
+[[package]]
+name = "kube"
+version = "0.48.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65b653297fc54118e32fd198c3afea77481550ada03267c68e658714c716d72a"
 dependencies = [
  "Inflector",
  "base64",
@@ -725,7 +739,7 @@ dependencies = [
  "futures-util",
  "http",
  "jsonpath_lib",
- "k8s-openapi",
+ "k8s-openapi 0.11.0",
  "log",
  "openssl",
  "pem",
@@ -748,7 +762,7 @@ dependencies = [
  "chrono",
  "env_logger 0.8.2",
  "itertools",
- "k8s-openapi",
+ "k8s-openapi 0.10.0",
  "kube",
  "log",
  "openssl",
