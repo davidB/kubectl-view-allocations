@@ -751,7 +751,7 @@ dependencies = [
 
 [[package]]
 name = "kubectl-view-allocations"
-version = "0.10.1-dev"
+version = "0.11.0"
 dependencies = [
  "anyhow",
  "chrono",
