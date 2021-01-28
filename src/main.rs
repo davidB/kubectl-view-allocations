@@ -3,9 +3,11 @@ mod tree;
 // mod human_format;
 use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
+use core::convert::TryFrom;
 use env_logger;
 use itertools::Itertools;
 use log::error;
+use prettytable::{cell, format, row, Cell, Row, Table};
 use qty::Qty;
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -345,7 +347,7 @@ impl GroupBy {
     fn extract_pod_name(e: &Resource) -> Option<String> {
         // We do not need to display "pods" resource types when grouping by pods
         if e.kind == "pods" {
-            return None
+            return None;
         }
         e.location.pod_name.clone()
     }
@@ -370,6 +372,10 @@ arg_enum! {
     author = env!("CARGO_PKG_HOMEPAGE"), about
 )]
 struct CliOpts {
+    /// The name of the kubeconfig context to use
+    #[structopt(long)]
+    context: Option<String>,
+
     /// Show only pods from this namespace
     #[structopt(short, long)]
     namespace: Option<String>,
@@ -414,11 +420,15 @@ async fn main() -> () {
     }
 }
 
-async fn refresh_kube_config() -> Result<()> {
+async fn refresh_kube_config(cli_opts: &CliOpts) -> Result<()> {
     //HACK force refresh token by calling "kubectl cluster-info before loading configuration"
     use std::process::Command;
-    let output = Command::new("kubectl")
-        .arg("cluster-info")
+    let mut cmd = Command::new("kubectl");
+    cmd.arg("cluster-info");
+    if let Some(ref context) = cli_opts.context {
+        cmd.arg("--context").arg(context);
+    }
+    let output = cmd
         .output()
         .with_context(|| "failed to executed 'kubectl cluster-info'")?;
     if !output.status.success() {
@@ -427,12 +437,26 @@ async fn refresh_kube_config() -> Result<()> {
     Ok(())
 }
 
-async fn do_main(cli_opts: &CliOpts) -> Result<()> {
-    refresh_kube_config()
+async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client> {
+    refresh_kube_config(cli_opts)
         .await
         .with_context(|| "failed to refresh kubectl config".to_string())?;
-    let client = kube::Client::try_default().await?;
+    let client_config = match cli_opts.context {
+        Some(ref context) => {
+            kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
+                context: Some(context.clone()),
+                ..Default::default()
+            })
+            .await?
+        }
+        None => kube::Config::infer().await?,
+    };
+    kube::Client::try_from(client_config)
+        .with_context(|| "failed to create the kube client".to_string())
+}
 
+async fn do_main(cli_opts: &CliOpts) -> Result<()> {
+    let client = new_client(cli_opts).await?;
     let mut resources: Vec<Resource> = vec![];
     collect_from_nodes(client.clone(), &mut resources)
         .await
@@ -505,7 +529,6 @@ fn display_as_csv(data: &[(Vec<String>, Option<QtyOfUsage>)], group_by: &[GroupB
 }
 
 fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_full_zero: bool) {
-    use prettytable::{cell, format, row, Cell, Row, Table};
     // Create the table
     let mut table = Table::new();
     let format = format::FormatBuilder::new()
@@ -518,7 +541,9 @@ fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_f
         .padding(1, 1)
         .build();
     table.set_format(format);
-    table.set_titles(row![bl->"Resource", br->"Requested", br->"Limit",  br->"Allocatable", br->"Free"]);
+    table.set_titles(
+        row![bl->"Resource", br->"Requested", br->"Limit",  br->"Allocatable", br->"Free"],
+    );
     let data2 = data
         .iter()
         .filter(|d| {

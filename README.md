@@ -55,6 +55,7 @@ FLAGS:
     -V, --version      Prints version information
 
 OPTIONS:
+        --context <context>                   The name of the kubeconfig context to use
     -g, --group-by <group-by>...              Group information hierarchically (default: -g resource -g node -g pod)
                                               [possible values: resource, node, pod,
                                               namespace]
