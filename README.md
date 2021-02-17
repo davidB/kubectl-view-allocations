@@ -29,6 +29,14 @@ Download from [github's release](https://github.com/davidB/kubectl-view-allocati
 curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/scripts/getLatest.sh | bash
 ```
 
+### via krew (kubectl plugin manager)
+
+[Krew – kubectl plugin manager](https://krew.sigs.k8s.io/)
+
+```sh
+kubectl krew install view-allocations
+```
+
 ### via cargo
 
 ```sh
@@ -42,7 +50,7 @@ cargo install kubectl-view-allocations
 ```txt
 kubectl-view-allocations -h
 
-kubectl-view-allocations 0.10.0
+kubectl-view-allocations 0.11.0
 https://github.com/davidB/kubectl-view-allocations
 kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...)
 
