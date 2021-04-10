@@ -30,24 +30,24 @@ struct Resource {
     kind: String,
     quantity: Qty,
     location: Location,
-    usage: ResourceUsage,
+    qualifier: ResourceQualifier,
 }
 
 #[derive(Debug, Clone)]
-enum ResourceUsage {
+enum ResourceQualifier {
     Limit,
     Requested,
     Allocatable,
 }
 
 #[derive(Debug, Clone, Default)]
-struct QtyOfUsage {
+struct QtyByQualifier {
     limit: Qty,
     requested: Qty,
     allocatable: Qty,
 }
 
-impl QtyOfUsage {
+impl QtyByQualifier {
     pub fn calc_free(&self) -> Qty {
         let total_used = std::cmp::max(&self.limit, &self.requested);
         if self.allocatable > *total_used {
@@ -58,7 +58,7 @@ impl QtyOfUsage {
     }
 }
 
-fn sum_by_usage(rsrcs: &[&Resource]) -> Option<QtyOfUsage> {
+fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
     if !rsrcs.is_empty() {
         let kind = rsrcs
             .get(0)
@@ -67,11 +67,11 @@ fn sum_by_usage(rsrcs: &[&Resource]) -> Option<QtyOfUsage> {
             .clone();
 
         if rsrcs.iter().all(|i| i.kind == kind) {
-            let sum = rsrcs.iter().fold(QtyOfUsage::default(), |mut acc, v| {
-                match &v.usage {
-                    ResourceUsage::Limit => acc.limit += &v.quantity,
-                    ResourceUsage::Requested => acc.requested += &v.quantity,
-                    ResourceUsage::Allocatable => acc.allocatable += &v.quantity,
+            let sum = rsrcs.iter().fold(QtyByQualifier::default(), |mut acc, v| {
+                match &v.qualifier {
+                    ResourceQualifier::Limit => acc.limit += &v.quantity,
+                    ResourceQualifier::Requested => acc.requested += &v.quantity,
+                    ResourceQualifier::Allocatable => acc.allocatable += &v.quantity,
                 };
                 acc
             });
@@ -84,13 +84,13 @@ fn sum_by_usage(rsrcs: &[&Resource]) -> Option<QtyOfUsage> {
     }
 }
 
-fn make_usages(
+fn make_qualifiers(
     rsrcs: &[Resource],
     group_by: &[GroupBy],
     resource_names: &[String],
-) -> Vec<(Vec<String>, Option<QtyOfUsage>)> {
+) -> Vec<(Vec<String>, Option<QtyByQualifier>)> {
     let group_by_fct = group_by.iter().map(GroupBy::to_fct).collect::<Vec<_>>();
-    let mut out = make_group_x_usage(
+    let mut out = make_group_x_qualifier(
         &(rsrcs
             .iter()
             .filter(|a| accept_resource(&a.kind, resource_names))
@@ -103,12 +103,12 @@ fn make_usages(
     out
 }
 
-fn make_group_x_usage(
+fn make_group_x_qualifier(
     rsrcs: &[&Resource],
     prefix: &[String],
     group_by_fct: &[fn(&Resource) -> Option<String>],
     group_by_depth: usize,
-) -> Vec<(Vec<String>, Option<QtyOfUsage>)> {
+) -> Vec<(Vec<String>, Option<QtyByQualifier>)> {
     // Note: The `&` is significant here, `GroupBy` is iterable
     // only by reference. You can also call `.into_iter()` explicitly.
     let mut out = vec![];
@@ -120,8 +120,9 @@ fn make_group_x_usage(
         {
             let mut key_full = prefix.to_vec();
             key_full.push(key);
-            let children = make_group_x_usage(&group, &key_full, group_by_fct, group_by_depth + 1);
-            out.push((key_full, sum_by_usage(&group)));
+            let children =
+                make_group_x_qualifier(&group, &key_full, group_by_fct, group_by_depth + 1);
+            out.push((key_full, sum_by_qualifier(&group)));
             out.extend(children);
         }
     }
@@ -152,14 +153,14 @@ async fn collect_from_nodes(client: kube::Client, resources: &mut Vec<Resource>)
                     format!(
                         "Failed to read Qty of location {:?} / {:?} {:?}={:?}",
                         &location,
-                        ResourceUsage::Allocatable,
+                        ResourceQualifier::Allocatable,
                         kind,
                         &value
                     )
                 })?;
                 resources.push(Resource {
                     kind: kind.clone(),
-                    usage: ResourceUsage::Allocatable,
+                    qualifier: ResourceQualifier::Allocatable,
                     quantity,
                     location: location.clone(),
                 });
@@ -205,13 +206,13 @@ fn is_scheduled(pod: &Pod) -> bool {
 fn push_resources(
     resources: &mut Vec<Resource>,
     location: &Location,
-    usage: ResourceUsage,
+    qualifier: ResourceQualifier,
     resource_list: &BTreeMap<String, Qty>,
 ) -> Result<()> {
     for (key, quantity) in resource_list.iter() {
         resources.push(Resource {
             kind: key.clone(),
-            usage: usage.clone(),
+            qualifier: qualifier.clone(),
             quantity: quantity.clone(),
             location: location.clone(),
         });
@@ -219,7 +220,7 @@ fn push_resources(
     // add a "pods" resource as well
     resources.push(Resource {
         kind: "pods".to_string(),
-        usage: usage.clone(),
+        qualifier: qualifier.clone(),
         quantity: Qty::from_str("1")?,
         location: location.clone(),
     });
@@ -268,7 +269,7 @@ async fn collect_from_pods(
             namespace: metadata.namespace.clone(),
             pod_name: metadata.name.clone(),
         };
-        // compute the effective resource usage
+        // compute the effective resource qualifier
         // see https://kubernetes.io/docs/concepts/workloads/pods/init-containers/#resources
         let mut resource_requests: BTreeMap<String, Qty> = BTreeMap::new();
         let mut resource_limits: BTreeMap<String, Qty> = BTreeMap::new();
@@ -307,10 +308,15 @@ async fn collect_from_pods(
         push_resources(
             resources,
             &location,
-            ResourceUsage::Requested,
+            ResourceQualifier::Requested,
             &resource_requests,
         )?;
-        push_resources(resources, &location, ResourceUsage::Limit, &resource_limits)?;
+        push_resources(
+            resources,
+            &location,
+            ResourceQualifier::Limit,
+            &resource_limits,
+        )?;
     }
     Ok(())
 }
@@ -465,14 +471,14 @@ async fn do_main(cli_opts: &CliOpts) -> Result<()> {
         .await
         .with_context(|| "failed to collect info from pods".to_string())?;
 
-    let res = make_usages(&resources, &cli_opts.group_by, &cli_opts.resource_name);
+    let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name);
     match &cli_opts.output {
         Output::table => display_with_prettytable(&res, !&cli_opts.show_zero),
         Output::csv => display_as_csv(&res, &cli_opts.group_by),
     }
     Ok(())
 }
-fn display_as_csv(data: &[(Vec<String>, Option<QtyOfUsage>)], group_by: &[GroupBy]) {
+fn display_as_csv(data: &[(Vec<String>, Option<QtyByQualifier>)], group_by: &[GroupBy]) {
     // print header
     println!(
         "Date,Kind,{},Requested,%Requested,Limit,%Limit,Allocatable,Free",
@@ -528,7 +534,10 @@ fn display_as_csv(data: &[(Vec<String>, Option<QtyOfUsage>)], group_by: &[GroupB
     }
 }
 
-fn display_with_prettytable(data: &[(Vec<String>, Option<QtyOfUsage>)], filter_full_zero: bool) {
+fn display_with_prettytable(
+    data: &[(Vec<String>, Option<QtyByQualifier>)],
+    filter_full_zero: bool,
+) {
     // Create the table
     let mut table = Table::new();
     let format = format::FormatBuilder::new()
