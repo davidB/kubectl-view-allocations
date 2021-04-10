@@ -15,7 +15,7 @@ struct Scale {
 
 // should be sorted in DESC
 #[rustfmt::skip]
-static SCALES: [Scale;12] = [
+static SCALES: [Scale;13] = [
     Scale{ label:"Pi", base: 2, pow: 50},
     Scale{ label:"Ti", base: 2, pow: 40},
     Scale{ label:"Gi", base: 2, pow: 30},
@@ -28,6 +28,7 @@ static SCALES: [Scale;12] = [
     Scale{ label:"k", base: 10, pow: 3},
     Scale{ label:"", base: 10, pow: 0},
     Scale{ label:"m", base: 10, pow: -3},
+    Scale{ label:"n", base: 10, pow: -9},
 ];
 
 impl FromStr for Scale {
@@ -293,6 +294,10 @@ mod tests {
             ("1000m", "1000.0m"),
             ("100m", "100.0m"),
             ("1m", "1.0m"),
+            ("1000000n", "1000000.0n"),
+            // lowest precision is m, under 1m value is trunked
+            ("1n", "0.0n"),
+            ("999999n", "0.0n"),
         ];
         for input in cases {
             assert_that!(format!("{}", &Qty::from_str(input.0)?)).is_equal_to(input.1.to_string());

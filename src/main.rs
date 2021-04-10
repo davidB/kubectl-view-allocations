@@ -1,5 +1,7 @@
+mod metrics;
 mod qty;
 mod tree;
+
 // mod human_format;
 use anyhow::{anyhow, Context, Result};
 use chrono::prelude::*;
@@ -16,7 +18,7 @@ use structopt::clap::AppSettings;
 use structopt::StructOpt;
 
 use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::api::{Api, ListParams};
+use kube::api::{Api, ListParams, ObjectList, Request};
 
 #[derive(Debug, Clone, Default)]
 struct Location {
@@ -38,6 +40,7 @@ enum ResourceQualifier {
     Limit,
     Requested,
     Allocatable,
+    Utilization,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -45,6 +48,7 @@ struct QtyByQualifier {
     limit: Qty,
     requested: Qty,
     allocatable: Qty,
+    utilization: Qty,
 }
 
 impl QtyByQualifier {
@@ -72,6 +76,7 @@ fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
                     ResourceQualifier::Limit => acc.limit += &v.quantity,
                     ResourceQualifier::Requested => acc.requested += &v.quantity,
                     ResourceQualifier::Allocatable => acc.allocatable += &v.quantity,
+                    ResourceQualifier::Utilization => acc.utilization += &v.quantity,
                 };
                 acc
             });
@@ -321,6 +326,83 @@ async fn collect_from_pods(
     Ok(())
 }
 
+fn extract_locations(
+    resources: &Vec<Resource>,
+) -> std::collections::HashMap<(String, String), Location> {
+    resources
+        .iter()
+        .filter_map(|resource| {
+            let loc = &resource.location;
+            loc.pod_name.as_ref().map(|n| {
+                (
+                    (loc.namespace.clone().unwrap_or_default(), n.to_owned()),
+                    loc.clone(),
+                )
+            })
+        })
+        .collect()
+}
+
+//TODO need location of pods (aka node because its not part of metrics)
+async fn collect_from_metrics(client: kube::Client, resources: &mut Vec<Resource>) -> Result<()> {
+    let request = Request::new("/apis/metrics.k8s.io/v1beta1/pods");
+    let pod_metrics: ObjectList<metrics::PodMetrics> = client
+        .request(request.list(&ListParams::default())?)
+        .await
+        .with_context(|| "Failed to list podmetrics via metrics api".to_string())?;
+    let cpu_kind = "cpu";
+    let memory_kind = "memory";
+    let locations = extract_locations(resources);
+    for pod_metric in pod_metrics.items {
+        let metadata = &pod_metric.metadata;
+        let key = (
+            metadata.namespace.clone().unwrap_or_default(),
+            metadata.name.clone().unwrap_or_default(),
+        );
+        let location = locations.get(&key).cloned().unwrap_or_else(|| Location {
+            // node_name: node_name.clone(),
+            namespace: metadata.namespace.clone(),
+            pod_name: metadata.name.clone(),
+            ..Location::default()
+        });
+        let mut cpu_utilization = Qty::default();
+        let mut memory_utilization = Qty::default();
+        for container in pod_metric.containers.into_iter() {
+            cpu_utilization += &Qty::from_str(&container.usage.cpu).with_context(|| {
+                format!(
+                    "Failed to read Qty of location {:?} / {:?} {:?}={:?}",
+                    &location,
+                    ResourceQualifier::Utilization,
+                    cpu_kind,
+                    &container.usage.cpu
+                )
+            })?;
+            memory_utilization += &Qty::from_str(&container.usage.memory).with_context(|| {
+                format!(
+                    "Failed to read Qty of location {:?} / {:?} {:?}={:?}",
+                    &location,
+                    ResourceQualifier::Utilization,
+                    memory_kind,
+                    &container.usage.memory
+                )
+            })?;
+        }
+        resources.push(Resource {
+            kind: cpu_kind.to_string(),
+            qualifier: ResourceQualifier::Utilization,
+            quantity: cpu_utilization,
+            location: location.clone(),
+        });
+        resources.push(Resource {
+            kind: memory_kind.to_string(),
+            qualifier: ResourceQualifier::Utilization,
+            quantity: memory_utilization,
+            location: location.clone(),
+        });
+    }
+    Ok(())
+}
+
 arg_enum! {
     #[derive(Debug, Eq, PartialEq)]
     #[allow(non_camel_case_types)]
@@ -385,6 +467,10 @@ struct CliOpts {
     /// Show only pods from this namespace
     #[structopt(short, long)]
     namespace: Option<String>,
+
+    /// Retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
+    #[structopt(short = "u", long)]
+    utilization: bool,
 
     /// Show lines with zero requested and zero limit and zero allocatable
     #[structopt(short = "z", long)]
@@ -470,19 +556,33 @@ async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     collect_from_pods(client.clone(), &mut resources, &cli_opts.namespace)
         .await
         .with_context(|| "failed to collect info from pods".to_string())?;
+    if cli_opts.utilization {
+        collect_from_metrics(client.clone(), &mut resources)
+            .await
+            .with_context(|| "failed to collect metrics from pods".to_string())?;
+    }
 
     let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name);
     match &cli_opts.output {
-        Output::table => display_with_prettytable(&res, !&cli_opts.show_zero),
-        Output::csv => display_as_csv(&res, &cli_opts.group_by),
+        Output::table => display_with_prettytable(&res, !&cli_opts.show_zero, cli_opts.utilization),
+        Output::csv => display_as_csv(&res, &cli_opts.group_by, cli_opts.utilization),
     }
     Ok(())
 }
-fn display_as_csv(data: &[(Vec<String>, Option<QtyByQualifier>)], group_by: &[GroupBy]) {
+fn display_as_csv(
+    data: &[(Vec<String>, Option<QtyByQualifier>)],
+    group_by: &[GroupBy],
+    show_utilization: bool,
+) {
     // print header
     println!(
-        "Date,Kind,{},Requested,%Requested,Limit,%Limit,Allocatable,Free",
-        group_by.iter().map(|x| x.to_string()).join(",")
+        "Date,Kind,{}{},Requested,%Requested,Limit,%Limit,Allocatable,Free",
+        group_by.iter().map(|x| x.to_string()).join(","),
+        if show_utilization {
+            ",Utilization,%Utilization"
+        } else {
+            ""
+        }
     );
 
     // print data
@@ -502,6 +602,10 @@ fn display_as_csv(data: &[(Vec<String>, Option<QtyByQualifier>)], group_by: &[Gr
         }
         if let Some(qtys) = oqtys {
             if qtys.allocatable.is_zero() {
+                if show_utilization {
+                    row.push(format!("{:.2}", f64::from(&qtys.utilization)));
+                    row.push(empty.clone());
+                }
                 row.push(format!("{:.2}", f64::from(&qtys.requested)));
                 row.push(empty.clone());
                 row.push(format!("{:.2}", f64::from(&qtys.limit)));
@@ -509,6 +613,13 @@ fn display_as_csv(data: &[(Vec<String>, Option<QtyByQualifier>)], group_by: &[Gr
                 row.push(empty.clone());
                 row.push(empty.clone());
             } else {
+                if show_utilization {
+                    row.push(format!("{:.2}", f64::from(&qtys.utilization)));
+                    row.push(format!(
+                        "{:.0}%",
+                        qtys.utilization.calc_percentage(&qtys.allocatable)
+                    ));
+                }
                 row.push(format!("{:.2}", f64::from(&qtys.requested)));
                 row.push(format!(
                     "{:.0}%",
@@ -523,6 +634,10 @@ fn display_as_csv(data: &[(Vec<String>, Option<QtyByQualifier>)], group_by: &[Gr
                 row.push(format!("{:.2}", f64::from(&qtys.calc_free())));
             }
         } else {
+            if show_utilization {
+                row.push(empty.clone());
+                row.push(empty.clone());
+            }
             row.push(empty.clone());
             row.push(empty.clone());
             row.push(empty.clone());
@@ -537,6 +652,7 @@ fn display_as_csv(data: &[(Vec<String>, Option<QtyByQualifier>)], group_by: &[Gr
 fn display_with_prettytable(
     data: &[(Vec<String>, Option<QtyByQualifier>)],
     filter_full_zero: bool,
+    show_utilization: bool,
 ) {
     // Create the table
     let mut table = Table::new();
@@ -550,9 +666,11 @@ fn display_with_prettytable(
         .padding(1, 1)
         .build();
     table.set_format(format);
-    table.set_titles(
-        row![bl->"Resource", br->"Requested", br->"Limit",  br->"Allocatable", br->"Free"],
-    );
+    let mut row_titles = row![bl->"Resource", br->"Utilization", br->"Requested", br->"Limit",  br->"Allocatable", br->"Free"];
+    if !show_utilization {
+        row_titles.remove_cell(1);
+    }
+    table.set_titles(row_titles);
     let data2 = data
         .iter()
         .filter(|d| {
@@ -560,7 +678,12 @@ fn display_with_prettytable(
                 || !d
                     .1
                     .as_ref()
-                    .map(|x| x.requested.is_zero() && x.limit.is_zero() && x.allocatable.is_zero())
+                    .map(|x| {
+                        x.utilization.is_zero()
+                            && x.requested.is_zero()
+                            && x.limit.is_zero()
+                            && x.allocatable.is_zero()
+                    })
                     .unwrap_or(false)
         })
         .collect::<Vec<_>>();
@@ -572,15 +695,18 @@ fn display_with_prettytable(
             prefix,
             k.last().map(|x| x.as_str()).unwrap_or("???")
         );
-        let row = if let Some(qtys) = oqtys {
+        let mut row = if let Some(qtys) = oqtys {
             if qtys.allocatable.is_zero() {
-                let style = if qtys.requested.is_zero() || qtys.limit.is_zero() {
+                let style = if qtys.requested > qtys.limit || qtys.utilization > qtys.limit {
                     "rFr"
+                } else if qtys.requested.is_zero() || qtys.limit.is_zero() {
+                    "rFy"
                 } else {
                     "r"
                 };
                 Row::new(vec![
                     Cell::new(&column0),
+                    Cell::new(&format!("{}", qtys.utilization.adjust_scale())).style_spec(style),
                     Cell::new(&format!("{}", qtys.requested.adjust_scale())).style_spec(style),
                     Cell::new(&format!("{}", qtys.limit.adjust_scale())).style_spec(style),
                     Cell::new("").style_spec(style),
@@ -589,6 +715,7 @@ fn display_with_prettytable(
             } else {
                 row![
                     &column0,
+                    r-> &format!("({:.0}%) {}", qtys.utilization.calc_percentage(&qtys.allocatable), qtys.utilization.adjust_scale()),
                     r-> &format!("({:.0}%) {}", qtys.requested.calc_percentage(&qtys.allocatable), qtys.requested.adjust_scale()),
                     r-> &format!("({:.0}%) {}", qtys.limit.calc_percentage(&qtys.allocatable), qtys.limit.adjust_scale()),
                     r-> &format!("{}", qtys.allocatable.adjust_scale()),
@@ -602,8 +729,12 @@ fn display_with_prettytable(
                 r-> "",
                 r-> "",
                 r-> "",
+                r-> "",
             ]
         };
+        if !show_utilization {
+            row.remove_cell(1);
+        }
         table.add_row(row);
     }
 

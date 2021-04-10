@@ -21,7 +21,7 @@ Columns displayed :
 
 ## Install
 
-### via binary
+### Via binary
 
 Download from [github's release](https://github.com/davidB/kubectl-view-allocations/releases/latest) or use script
 
@@ -29,7 +29,7 @@ Download from [github's release](https://github.com/davidB/kubectl-view-allocati
 curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/scripts/getLatest.sh | bash
 ```
 
-### via krew (kubectl plugin manager)
+### Via krew (kubectl plugin manager)
 
 [Krew – kubectl plugin manager](https://krew.sigs.k8s.io/)
 
@@ -37,7 +37,7 @@ curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/sc
 kubectl krew install view-allocations
 ```
 
-### via cargo
+### Via cargo
 
 ```sh
 cargo install kubectl-view-allocations
@@ -50,7 +50,7 @@ cargo install kubectl-view-allocations
 ```txt
 kubectl-view-allocations -h
 
-kubectl-view-allocations 0.11.0
+kubectl-view-allocations 0.13.0
 https://github.com/davidB/kubectl-view-allocations
 kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...)
 
@@ -58,9 +58,11 @@ USAGE:
     kubectl-view-allocations [FLAGS] [OPTIONS]
 
 FLAGS:
-    -h, --help         Prints help information
-    -z, --show-zero    Show lines with zero requested and zero limit and zero allocatable
-    -V, --version      Prints version information
+    -h, --help           Prints help information
+    -z, --show-zero      Show lines with zero requested and zero limit and zero allocatable
+    -u, --utilization    Retrieve utilization (for cpu and memory), require to have metrics-server
+                         https://github.com/kubernetes-sigs/metrics-server
+    -V, --version        Prints version information
 
 OPTIONS:
         --context <context>                   The name of the kubeconfig context to use
@@ -73,7 +75,7 @@ OPTIONS:
     -r, --resource-name <resource-name>...    Filter resources shown by name(s), by default all resources are listed
 ```
 
-### show gpu allocation
+### Show gpu allocation
 
 ```txt
 
@@ -95,7 +97,7 @@ OPTIONS:
      └─ fah-gpu-cpu-x7zfb         2.0         2.0    
 ```
 
-### overview only
+### Overview only
 
 ```sh
 > kubectl-view-allocations -g resource
@@ -108,7 +110,45 @@ OPTIONS:
   pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k 
 ```
 
-### group by namespaces
+### Show utilization
+
+- Utilization information are retrieve from [metrics-server](https://github.com/kubernetes-incubator/metrics-server) (should be setup on your cluster).
+- Only report cpu and memory utilization
+
+```sh
+> kubectl-view-allocations -u
+
+ Resource                                            Utilization     Requested         Limit  Allocatable     Free 
+  cpu                                                 (0%) 59.0m   (6%) 950.0m   (1%) 100.0m         16.0     15.1 
+  └─ kind-control-plane                               (0%) 59.0m   (6%) 950.0m   (1%) 100.0m         16.0     15.1 
+     ├─ coredns-74ff55c5b-ckc9w                             1.0m        100.0m           0.0                       
+     ├─ coredns-74ff55c5b-kmfll                             1.0m        100.0m           0.0                       
+     ├─ etcd-kind-control-plane                            10.0m        100.0m           0.0                       
+     ├─ kindnet-f5f82                                        0.0        100.0m        100.0m                       
+     ├─ kube-apiserver-kind-control-plane                  36.0m        250.0m           0.0                       
+     ├─ kube-controller-manager-kind-control-plane          9.0m        200.0m           0.0                       
+     ├─ kube-scheduler-kind-control-plane                   1.0m        100.0m           0.0                       
+     └─ metrics-server-5b78d5f9c6-s68xn                     1.0m           0.0           0.0                       
+  ephemeral-storage                                     (0%) 0.0  (0%) 100.0Mi      (0%) 0.0      468.4Gi  468.4Gi 
+  └─ kind-control-plane                                 (0%) 0.0  (0%) 100.0Mi      (0%) 0.0      468.4Gi  468.4Gi 
+     └─ etcd-kind-control-plane                              0.0       100.0Mi           0.0                       
+  memory                                            (1%) 405.2Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi   30.9Gi 
+  └─ kind-control-plane                             (1%) 405.2Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi   30.9Gi 
+     ├─ coredns-74ff55c5b-ckc9w                           11.3Mi        70.0Mi       170.0Mi                       
+     ├─ coredns-74ff55c5b-kmfll                           11.5Mi        70.0Mi       170.0Mi                       
+     ├─ etcd-kind-control-plane                           27.4Mi       100.0Mi           0.0                       
+     ├─ kindnet-f5f82                                      6.8Mi        50.0Mi        50.0Mi                       
+     ├─ kube-apiserver-kind-control-plane                246.1Mi           0.0           0.0                       
+     ├─ kube-controller-manager-kind-control-plane        47.1Mi           0.0           0.0                       
+     ├─ kube-proxy-vh8c2                                  13.4Mi           0.0           0.0                       
+     ├─ kube-scheduler-kind-control-plane                 19.2Mi           0.0           0.0                       
+     ├─ local-path-provisioner-78776bfc44-l4v2m            8.1Mi           0.0           0.0                       
+     └─ metrics-server-5b78d5f9c6-s68xn                   14.5Mi           0.0           0.0                       
+  pods                                                  (0%) 0.0     (9%) 10.0     (9%) 10.0        110.0    100.0 
+  └─ kind-control-plane                                 (0%) 0.0     (9%) 10.0     (9%) 10.0        110.0    100.0 
+```
+
+### Group by namespaces
 
 ```sh
 > kubectl-view-allocations -g namespace
@@ -153,7 +193,7 @@ OPTIONS:
   └─ weave                  14.0           14.0   
 ```
 
-### show as csv
+### Show as csv
 
 In this case value as expanded as float (with 2 decimal)
 
