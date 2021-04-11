@@ -92,6 +92,13 @@ impl From<&Qty> for f64 {
 }
 
 impl Qty {
+    pub fn lowest_positive() -> Qty {
+        Qty {
+            value: 1,
+            scale: Scale::from_str("m").unwrap(),
+        }
+    }
+
     pub fn is_zero(&self) -> bool {
         self.value == 0
     }

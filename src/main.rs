@@ -368,24 +368,28 @@ async fn collect_from_metrics(client: kube::Client, resources: &mut Vec<Resource
         let mut cpu_utilization = Qty::default();
         let mut memory_utilization = Qty::default();
         for container in pod_metric.containers.into_iter() {
-            cpu_utilization += &Qty::from_str(&container.usage.cpu).with_context(|| {
-                format!(
-                    "Failed to read Qty of location {:?} / {:?} {:?}={:?}",
-                    &location,
-                    ResourceQualifier::Utilization,
-                    cpu_kind,
-                    &container.usage.cpu
-                )
-            })?;
-            memory_utilization += &Qty::from_str(&container.usage.memory).with_context(|| {
-                format!(
-                    "Failed to read Qty of location {:?} / {:?} {:?}={:?}",
-                    &location,
-                    ResourceQualifier::Utilization,
-                    memory_kind,
-                    &container.usage.memory
-                )
-            })?;
+            cpu_utilization += &Qty::from_str(&container.usage.cpu)
+                .with_context(|| {
+                    format!(
+                        "Failed to read Qty of location {:?} / {:?} {:?}={:?}",
+                        &location,
+                        ResourceQualifier::Utilization,
+                        cpu_kind,
+                        &container.usage.cpu
+                    )
+                })?
+                .max(Qty::lowest_positive());
+            memory_utilization += &Qty::from_str(&container.usage.memory)
+                .with_context(|| {
+                    format!(
+                        "Failed to read Qty of location {:?} / {:?} {:?}={:?}",
+                        &location,
+                        ResourceQualifier::Utilization,
+                        memory_kind,
+                        &container.usage.memory
+                    )
+                })?
+                .max(Qty::lowest_positive());
         }
         resources.push(Resource {
             kind: cpu_kind.to_string(),
