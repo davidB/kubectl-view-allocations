@@ -349,7 +349,9 @@ async fn collect_from_metrics(client: kube::Client, resources: &mut Vec<Resource
     let pod_metrics: ObjectList<metrics::PodMetrics> = client
         .request(request.list(&ListParams::default())?)
         .await
-        .with_context(|| "Failed to list podmetrics via metrics api".to_string())?;
+        .with_context(|| {
+            "Failed to list podmetrics, maybe Metrics API not available".to_string()
+        })?;
     let cpu_kind = "cpu";
     let memory_kind = "memory";
     let locations = extract_locations(resources);
