@@ -233,6 +233,12 @@ Date,Kind,resource,Requested,%Requested,Limit,%Limit,Allocatable,Free
 2020-08-19T19:11:49.630864028+00:00,resource,pods,0.00,0%,0.00,0%,1540.00,1540.00
 ```
 
-## Alternatives
+## Alternatives & Similars
 
 - see the discussion [Need simple kubectl command to see cluster resource usage · Issue #17512 · kubernetes/kubernetes](https://github.com/kubernetes/kubernetes/issues/17512)
+- For CPU & Memory only
+  - [robscott/kube-capacity: A simple CLI that provides an overview of the resource requests, limits, and utilization in a Kubernetes cluster](https://github.com/robscott/kube-capacity),
+  - [hjacobs/kube-resource-report: Report Kubernetes cluster and pod resource requests vs usage and generate static HTML](https://github.com/hjacobs/kube-resource-report)
+- For CPU & Memory utilization only
+  - `kubectl top pods`
+  - [LeastAuthority/kubetop: A top(1)-like tool for Kubernetes.](https://github.com/LeastAuthority/kubetop)
