@@ -45,20 +45,29 @@ enum ResourceQualifier {
 
 #[derive(Debug, Clone, Default)]
 struct QtyByQualifier {
-    limit: Qty,
-    requested: Qty,
-    allocatable: Qty,
-    utilization: Qty,
+    limit: Option<Qty>,
+    requested: Option<Qty>,
+    allocatable: Option<Qty>,
+    utilization: Option<Qty>,
+}
+
+fn add(lhs: Option<Qty>, rhs: &Qty) -> Option<Qty> {
+    lhs.map(|l| &l + rhs).or_else(|| Some(rhs.clone()))
 }
 
 impl QtyByQualifier {
-    pub fn calc_free(&self) -> Qty {
-        let total_used = std::cmp::max(&self.limit, &self.requested);
-        if self.allocatable > *total_used {
-            &self.allocatable - total_used
-        } else {
-            Qty::default()
-        }
+    pub fn calc_free(&self) -> Option<Qty> {
+        let total_used = std::cmp::max(self.limit.as_ref(), self.requested.as_ref());
+        self.allocatable
+            .as_ref()
+            .zip(total_used)
+            .map(|(allocatable, total_used)| {
+                if allocatable > total_used {
+                    allocatable - total_used
+                } else {
+                    Qty::default()
+                }
+            })
     }
 }
 
@@ -73,10 +82,14 @@ fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
         if rsrcs.iter().all(|i| i.kind == kind) {
             let sum = rsrcs.iter().fold(QtyByQualifier::default(), |mut acc, v| {
                 match &v.qualifier {
-                    ResourceQualifier::Limit => acc.limit += &v.quantity,
-                    ResourceQualifier::Requested => acc.requested += &v.quantity,
-                    ResourceQualifier::Allocatable => acc.allocatable += &v.quantity,
-                    ResourceQualifier::Utilization => acc.utilization += &v.quantity,
+                    ResourceQualifier::Limit => acc.limit = add(acc.limit, &v.quantity),
+                    ResourceQualifier::Requested => acc.requested = add(acc.requested, &v.quantity),
+                    ResourceQualifier::Allocatable => {
+                        acc.allocatable = add(acc.allocatable, &v.quantity)
+                    }
+                    ResourceQualifier::Utilization => {
+                        acc.utilization = add(acc.utilization, &v.quantity)
+                    }
                 };
                 acc
             });
@@ -575,6 +588,7 @@ async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     }
     Ok(())
 }
+
 fn display_as_csv(
     data: &[(Vec<String>, Option<QtyByQualifier>)],
     group_by: &[GroupBy],
@@ -595,64 +609,56 @@ fn display_as_csv(
     let empty = "".to_string();
     let datetime = Utc::now().to_rfc3339();
     for (k, oqtys) in data {
-        let mut row = vec![];
-        row.push(datetime.clone());
-        row.push(
-            group_by
-                .get(k.len() - 1)
-                .map(|x| x.to_string())
-                .unwrap_or_else(|| empty.clone()),
-        );
-        for i in 0..group_by.len() {
-            row.push(k.get(i).cloned().unwrap_or_else(|| empty.clone()));
-        }
         if let Some(qtys) = oqtys {
-            if qtys.allocatable.is_zero() {
-                if show_utilization {
-                    row.push(format!("{:.2}", f64::from(&qtys.utilization)));
-                    row.push(empty.clone());
-                }
-                row.push(format!("{:.2}", f64::from(&qtys.requested)));
-                row.push(empty.clone());
-                row.push(format!("{:.2}", f64::from(&qtys.limit)));
-                row.push(empty.clone());
-                row.push(empty.clone());
-                row.push(empty.clone());
-            } else {
-                if show_utilization {
-                    row.push(format!("{:.2}", f64::from(&qtys.utilization)));
-                    row.push(format!(
-                        "{:.0}%",
-                        qtys.utilization.calc_percentage(&qtys.allocatable)
-                    ));
-                }
-                row.push(format!("{:.2}", f64::from(&qtys.requested)));
-                row.push(format!(
-                    "{:.0}%",
-                    qtys.requested.calc_percentage(&qtys.allocatable)
-                ));
-                row.push(format!("{:.2}", f64::from(&qtys.limit)));
-                row.push(format!(
-                    "{:.0}%",
-                    qtys.limit.calc_percentage(&qtys.allocatable)
-                ));
-                row.push(format!("{:.2}", f64::from(&qtys.allocatable)));
-                row.push(format!("{:.2}", f64::from(&qtys.calc_free())));
+            let mut row = vec![];
+            row.push(datetime.clone());
+            row.push(
+                group_by
+                    .get(k.len() - 1)
+                    .map(|x| x.to_string())
+                    .unwrap_or_else(|| empty.clone()),
+            );
+            for i in 0..group_by.len() {
+                row.push(k.get(i).cloned().unwrap_or_else(|| empty.clone()));
             }
-        } else {
+
             if show_utilization {
-                row.push(empty.clone());
-                row.push(empty.clone());
+                add_cells_for_cvs(&mut row, &qtys.utilization, &qtys.allocatable);
             }
-            row.push(empty.clone());
-            row.push(empty.clone());
-            row.push(empty.clone());
-            row.push(empty.clone());
-            row.push(empty.clone());
-            row.push(empty.clone());
+            add_cells_for_cvs(&mut row, &qtys.requested, &qtys.allocatable);
+            add_cells_for_cvs(&mut row, &qtys.limit, &qtys.allocatable);
+
+            row.push(
+                qtys.allocatable
+                    .as_ref()
+                    .map(|qty| format!("{:.2}", f64::from(qty)))
+                    .unwrap_or_else(|| empty.clone()),
+            );
+            row.push(
+                qtys.calc_free()
+                    .as_ref()
+                    .map(|qty| format!("{:.2}", f64::from(qty)))
+                    .unwrap_or_else(|| empty.clone()),
+            );
+            println!("{}", &row.join(","));
         }
-        println!("{}", &row.join(","));
     }
+}
+
+fn add_cells_for_cvs(row: &mut Vec<String>, oqty: &Option<Qty>, o100: &Option<Qty>) {
+    match oqty {
+        None => {
+            row.push("".to_string());
+            row.push("".to_string());
+        }
+        Some(ref qty) => {
+            row.push(format!("{:.2}", f64::from(qty)));
+            row.push(match o100 {
+                None => "".to_string(),
+                Some(q100) => format!("{:.0}%", qty.calc_percentage(&q100)),
+            });
+        }
+    };
 }
 
 fn display_with_prettytable(
@@ -685,10 +691,10 @@ fn display_with_prettytable(
                     .1
                     .as_ref()
                     .map(|x| {
-                        x.utilization.is_zero()
-                            && x.requested.is_zero()
-                            && x.limit.is_zero()
-                            && x.allocatable.is_zero()
+                        x.utilization.is_none()
+                            && is_empty(&x.requested)
+                            && is_empty(&x.limit)
+                            && is_empty(&x.allocatable)
                     })
                     .unwrap_or(false)
         })
@@ -701,51 +707,49 @@ fn display_with_prettytable(
             prefix,
             k.last().map(|x| x.as_str()).unwrap_or("???")
         );
-        let mut row = if let Some(qtys) = oqtys {
-            if qtys.allocatable.is_zero() {
-                let style = if qtys.requested > qtys.limit || qtys.utilization > qtys.limit {
-                    "rFr"
-                } else if qtys.requested.is_zero() || qtys.limit.is_zero() {
-                    "rFy"
-                } else {
-                    "r"
-                };
-                Row::new(vec![
-                    Cell::new(&column0),
-                    Cell::new(&format!("{}", qtys.utilization.adjust_scale())).style_spec(style),
-                    Cell::new(&format!("{}", qtys.requested.adjust_scale())).style_spec(style),
-                    Cell::new(&format!("{}", qtys.limit.adjust_scale())).style_spec(style),
-                    Cell::new("").style_spec(style),
-                    Cell::new("").style_spec(style),
-                ])
+        if let Some(qtys) = oqtys {
+            let style = if qtys.requested > qtys.limit || qtys.utilization > qtys.limit {
+                "rFy"
+            } else if is_empty(&qtys.requested) || is_empty(&qtys.limit) {
+                "rFy"
             } else {
-                row![
-                    &column0,
-                    r-> &format!("({:.0}%) {}", qtys.utilization.calc_percentage(&qtys.allocatable), qtys.utilization.adjust_scale()),
-                    r-> &format!("({:.0}%) {}", qtys.requested.calc_percentage(&qtys.allocatable), qtys.requested.adjust_scale()),
-                    r-> &format!("({:.0}%) {}", qtys.limit.calc_percentage(&qtys.allocatable), qtys.limit.adjust_scale()),
-                    r-> &format!("{}", qtys.allocatable.adjust_scale()),
-                    r-> &format!("{}", qtys.calc_free().adjust_scale()),
-                ]
+                "rFg"
+            };
+            let mut row = Row::new(vec![
+                Cell::new(&column0),
+                make_cell_for_prettytable(&qtys.utilization, &qtys.allocatable).style_spec(style),
+                make_cell_for_prettytable(&qtys.requested, &qtys.allocatable).style_spec(style),
+                make_cell_for_prettytable(&qtys.limit, &qtys.allocatable).style_spec(style),
+                make_cell_for_prettytable(&qtys.allocatable, &None).style_spec(style),
+                make_cell_for_prettytable(&qtys.calc_free(), &None).style_spec(style),
+            ]);
+            if !show_utilization {
+                row.remove_cell(1);
             }
-        } else {
-            row![
-                &column0,
-                r-> "",
-                r-> "",
-                r-> "",
-                r-> "",
-                r-> "",
-            ]
-        };
-        if !show_utilization {
-            row.remove_cell(1);
+            table.add_row(row);
         }
-        table.add_row(row);
     }
 
     // Print the table to stdout
     table.printstd();
+}
+
+fn is_empty(oqty: &Option<Qty>) -> bool {
+    match oqty {
+        Some(qty) => qty.is_zero(),
+        None => true,
+    }
+}
+
+fn make_cell_for_prettytable(oqty: &Option<Qty>, o100: &Option<Qty>) -> Cell {
+    let txt = match oqty {
+        None => "__".to_string(),
+        Some(ref qty) => match o100 {
+            None => format!("{}", qty.adjust_scale()),
+            Some(q100) => format!("({:.0}%) {}", qty.calc_percentage(q100), qty.adjust_scale()),
+        },
+    };
+    Cell::new(&txt)
 }
 
 #[cfg(test)]

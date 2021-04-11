@@ -81,20 +81,20 @@ OPTIONS:
 
 > kubectl-view-allocations -r gpu
 
- Resource                   Requested       Limit  Allocatable  Free 
-  nvidia.com/gpu           (71%) 10.0  (71%) 10.0         14.0   4.0 
-  ├─ node-gpu1               (0%) 0.0    (0%) 0.0          2.0   2.0 
-  ├─ node-gpu2               (0%) 0.0    (0%) 0.0          2.0   2.0 
-  ├─ node-gpu3             (100%) 2.0  (100%) 2.0          2.0   0.0 
-  │  └─ fah-gpu-cpu-d29sc         2.0         2.0                    
-  ├─ node-gpu4             (100%) 2.0  (100%) 2.0          2.0   0.0 
-  │  └─ fah-gpu-cpu-hkg59         2.0         2.0                    
-  ├─ node-gpu5             (100%) 2.0  (100%) 2.0          2.0   0.0 
-  │  └─ fah-gpu-cpu-nw9fc         2.0         2.0                    
-  ├─ node-gpu6             (100%) 2.0  (100%) 2.0          2.0   0.0 
-  │  └─ fah-gpu-cpu-gtwsf         2.0         2.0                    
-  └─ node-gpu7             (100%) 2.0  (100%) 2.0          2.0   0.0 
-     └─ fah-gpu-cpu-x7zfb         2.0         2.0    
+ Resource                   Requested       Limit  Allocatable  Free
+  nvidia.com/gpu           (71%) 10.0  (71%) 10.0         14.0   4.0
+  ├─ node-gpu1               (0%)  __    (0%)  __          2.0   2.0
+  ├─ node-gpu2               (0%)  __    (0%)  __          2.0   2.0
+  ├─ node-gpu3             (100%) 2.0  (100%) 2.0          2.0    __
+  │  └─ fah-gpu-cpu-d29sc         2.0         2.0           __    __
+  ├─ node-gpu4             (100%) 2.0  (100%) 2.0          2.0    __
+  │  └─ fah-gpu-cpu-hkg59         2.0         2.0           __    __
+  ├─ node-gpu5             (100%) 2.0  (100%) 2.0          2.0    __
+  │  └─ fah-gpu-cpu-nw9fc         2.0         2.0           __    __
+  ├─ node-gpu6             (100%) 2.0  (100%) 2.0          2.0    __
+  │  └─ fah-gpu-cpu-gtwsf         2.0         2.0           __    __
+  └─ node-gpu7             (100%) 2.0  (100%) 2.0          2.0    __
+     └─ fah-gpu-cpu-x7zfb         2.0         2.0           __    __
 ```
 
 ### Overview only
@@ -102,12 +102,12 @@ OPTIONS:
 ```sh
 > kubectl-view-allocations -g resource
 
- Resource              Requested          Limit  Allocatable     Free 
-  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9 
-  ephemeral-storage     (0%) 0.0       (0%) 0.0        38.4T    38.4T 
-  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi 
-  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0 
-  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k 
+ Resource              Requested          Limit  Allocatable     Free
+  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9
+  ephemeral-storage     (0%)  __       (0%)  __        38.4T    38.4T
+  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi
+  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0
+  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k
 ```
 
 ### Show utilization
@@ -118,34 +118,38 @@ OPTIONS:
 ```sh
 > kubectl-view-allocations -u
 
- Resource                                            Utilization     Requested         Limit  Allocatable     Free 
-  cpu                                                 (0%) 59.0m   (6%) 950.0m   (1%) 100.0m         16.0     15.1 
-  └─ kind-control-plane                               (0%) 59.0m   (6%) 950.0m   (1%) 100.0m         16.0     15.1 
-     ├─ coredns-74ff55c5b-ckc9w                             1.0m        100.0m           0.0                       
-     ├─ coredns-74ff55c5b-kmfll                             1.0m        100.0m           0.0                       
-     ├─ etcd-kind-control-plane                            10.0m        100.0m           0.0                       
-     ├─ kindnet-f5f82                                        0.0        100.0m        100.0m                       
-     ├─ kube-apiserver-kind-control-plane                  36.0m        250.0m           0.0                       
-     ├─ kube-controller-manager-kind-control-plane          9.0m        200.0m           0.0                       
-     ├─ kube-scheduler-kind-control-plane                   1.0m        100.0m           0.0                       
-     └─ metrics-server-5b78d5f9c6-s68xn                     1.0m           0.0           0.0                       
-  ephemeral-storage                                     (0%) 0.0  (0%) 100.0Mi      (0%) 0.0      468.4Gi  468.4Gi 
-  └─ kind-control-plane                                 (0%) 0.0  (0%) 100.0Mi      (0%) 0.0      468.4Gi  468.4Gi 
-     └─ etcd-kind-control-plane                              0.0       100.0Mi           0.0                       
-  memory                                            (1%) 405.2Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi   30.9Gi 
-  └─ kind-control-plane                             (1%) 405.2Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi   30.9Gi 
-     ├─ coredns-74ff55c5b-ckc9w                           11.3Mi        70.0Mi       170.0Mi                       
-     ├─ coredns-74ff55c5b-kmfll                           11.5Mi        70.0Mi       170.0Mi                       
-     ├─ etcd-kind-control-plane                           27.4Mi       100.0Mi           0.0                       
-     ├─ kindnet-f5f82                                      6.8Mi        50.0Mi        50.0Mi                       
-     ├─ kube-apiserver-kind-control-plane                246.1Mi           0.0           0.0                       
-     ├─ kube-controller-manager-kind-control-plane        47.1Mi           0.0           0.0                       
-     ├─ kube-proxy-vh8c2                                  13.4Mi           0.0           0.0                       
-     ├─ kube-scheduler-kind-control-plane                 19.2Mi           0.0           0.0                       
-     ├─ local-path-provisioner-78776bfc44-l4v2m            8.1Mi           0.0           0.0                       
-     └─ metrics-server-5b78d5f9c6-s68xn                   14.5Mi           0.0           0.0                       
-  pods                                                  (0%) 0.0     (9%) 10.0     (9%) 10.0        110.0    100.0 
-  └─ kind-control-plane                                 (0%) 0.0     (9%) 10.0     (9%) 10.0        110.0    100.0 
+ Resource                                            Utilization     Requested         Limit  Allocatable     Free
+  cpu                                                 (0%) 69.0m   (6%) 950.0m   (1%) 100.0m         16.0     15.1
+  └─ kind-control-plane                               (0%) 69.0m   (6%) 950.0m   (1%) 100.0m         16.0     15.1
+     ├─ coredns-74ff55c5b-ckc9w                             1.0m        100.0m            __           __       __
+     ├─ coredns-74ff55c5b-kmfll                             1.0m        100.0m            __           __       __
+     ├─ etcd-kind-control-plane                            14.0m        100.0m            __           __       __
+     ├─ kindnet-f5f82                                       1.0m        100.0m        100.0m           __       __
+     ├─ kube-apiserver-kind-control-plane                  38.0m        250.0m            __           __       __
+     ├─ kube-controller-manager-kind-control-plane          9.0m        200.0m            __           __       __
+     ├─ kube-proxy-vh8c2                                    1.0m            __            __           __       __
+     ├─ kube-scheduler-kind-control-plane                   1.0m        100.0m            __           __       __
+     ├─ local-path-provisioner-78776bfc44-l4v2m             1.0m            __            __           __       __
+     ├─ metrics-server-5b78d5f9c6-2scnc                     1.0m            __            __           __       __
+     └─ nvidia-device-plugin-daemonset-ctldt                1.0m            __            __           __       __
+  ephemeral-storage                                           __  (0%) 100.0Mi            __      468.4Gi  468.4Gi
+  └─ kind-control-plane                                       __  (0%) 100.0Mi            __      468.4Gi  468.4Gi
+     └─ etcd-kind-control-plane                               __       100.0Mi            __           __       __
+  memory                                            (1%) 466.3Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi   30.9Gi
+  └─ kind-control-plane                             (1%) 466.3Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi   30.9Gi
+     ├─ coredns-74ff55c5b-ckc9w                           11.3Mi        70.0Mi       170.0Mi           __       __
+     ├─ coredns-74ff55c5b-kmfll                           10.5Mi        70.0Mi       170.0Mi           __       __
+     ├─ etcd-kind-control-plane                           72.7Mi       100.0Mi            __           __       __
+     ├─ kindnet-f5f82                                      9.1Mi        50.0Mi        50.0Mi           __       __
+     ├─ kube-apiserver-kind-control-plane                255.0Mi            __            __           __       __
+     ├─ kube-controller-manager-kind-control-plane        46.6Mi            __            __           __       __
+     ├─ kube-proxy-vh8c2                                  15.7Mi            __            __           __       __
+     ├─ kube-scheduler-kind-control-plane                 18.5Mi            __            __           __       __
+     ├─ local-path-provisioner-78776bfc44-l4v2m            8.4Mi            __            __           __       __
+     ├─ metrics-server-5b78d5f9c6-2scnc                   15.2Mi            __            __           __       __
+     └─ nvidia-device-plugin-daemonset-ctldt               3.5Mi            __            __           __       __
+  pods                                                        __    (10%) 11.0    (10%) 11.0        110.0     99.0
+  └─ kind-control-plane                                       __    (10%) 11.0    (10%) 11.0        110.0     99.0
 ```
 
 ### Group by namespaces
@@ -153,44 +157,44 @@ OPTIONS:
 ```sh
 > kubectl-view-allocations -g namespace
 
- Resource              Requested          Limit  Allocatable     Free 
-  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9 
-  ├─ default                42.1           57.4                       
-  ├─ dev                     5.3          102.1                       
-  ├─ dns-external         200.0m            0.0                       
-  ├─ docs                 150.0m         600.0m                       
-  ├─ ingress-nginx        200.0m            1.0                       
-  ├─ kube-system             2.1            1.4                       
-  ├─ loki                    1.2            2.4                       
-  ├─ monitoring              3.5            7.0                       
-  ├─ sharelatex           700.0m            2.4                       
-  └─ weave                   1.3            1.8                       
-  ephemeral-storage     (0%) 0.0       (0%) 0.0        38.4T    38.4T 
-  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi 
-  ├─ default              34.6Gi         60.0Gi                       
-  ├─ dev                   5.3Gi         22.1Gi                       
-  ├─ dns-external        140.0Mi        340.0Mi                       
-  ├─ docs                448.0Mi        768.0Mi                       
-  ├─ ingress-nginx       256.0Mi          1.0Gi                       
-  ├─ kube-system         840.0Mi          1.0Gi                       
-  ├─ loki                  1.5Gi          1.6Gi                       
-  ├─ monitoring            5.9Gi          5.7Gi                       
-  ├─ sharelatex            2.5Gi          7.0Gi                       
-  └─ weave                 1.3Gi          1.8Gi                       
-  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0 
-  └─ dev                    10.0           10.0                       
-  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k 
-  ├─ cert-manager            3.0            3.0                       
-  ├─ default                13.0           13.0                       
-  ├─ dev                     9.0            9.0                       
-  ├─ dns-external            2.0            2.0                       
-  ├─ docs                    8.0            8.0                       
-  ├─ ingress-nginx           2.0            2.0                       
-  ├─ kube-system            43.0           43.0                       
-  ├─ loki                   12.0           12.0                       
-  ├─ monitoring             38.0           38.0                       
-  ├─ sharelatex              3.0            3.0                       
-  └─ weave                  14.0           14.0   
+ Resource              Requested          Limit  Allocatable     Free
+  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9
+  ├─ default                42.1           57.4
+  ├─ dev                     5.3          102.1
+  ├─ dns-external         200.0m             __
+  ├─ docs                 150.0m         600.0m
+  ├─ ingress-nginx        200.0m            1.0
+  ├─ kube-system             2.1            1.4
+  ├─ loki                    1.2            2.4
+  ├─ monitoring              3.5            7.0
+  ├─ sharelatex           700.0m            2.4
+  └─ weave                   1.3            1.8
+  ephemeral-storage     (0%)  __       (0%)  __        38.4T    38.4T
+  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi
+  ├─ default              34.6Gi         60.0Gi
+  ├─ dev                   5.3Gi         22.1Gi
+  ├─ dns-external        140.0Mi        340.0Mi
+  ├─ docs                448.0Mi        768.0Mi
+  ├─ ingress-nginx       256.0Mi          1.0Gi
+  ├─ kube-system         840.0Mi          1.0Gi
+  ├─ loki                  1.5Gi          1.6Gi
+  ├─ monitoring            5.9Gi          5.7Gi
+  ├─ sharelatex            2.5Gi          7.0Gi
+  └─ weave                 1.3Gi          1.8Gi
+  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0
+  └─ dev                    10.0           10.0
+  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k
+  ├─ cert-manager            3.0            3.0
+  ├─ default                13.0           13.0
+  ├─ dev                     9.0            9.0
+  ├─ dns-external            2.0            2.0
+  ├─ docs                    8.0            8.0
+  ├─ ingress-nginx           2.0            2.0
+  ├─ kube-system            43.0           43.0
+  ├─ loki                   12.0           12.0
+  ├─ monitoring             38.0           38.0
+  ├─ sharelatex              3.0            3.0
+  └─ weave                  14.0           14.0
 ```
 
 ### Show as csv
