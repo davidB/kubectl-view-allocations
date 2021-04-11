@@ -18,6 +18,7 @@ Columns displayed :
 - `Limit` : Quantity of resources max (limit) requestable by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running. With percentage of resources max / limit over what is allocatable in the group.
 - `Allocatable` : Allocatable resources defined (or detected) on nodes.
 - `Free` : `Allocatable - max (Limit, Requested)`
+- `Utilization` : Quantity of resources (cpu & memory only) used as reported by Metrics API. It's disable by default, [metrics-server](https://github.com/kubernetes-incubator/metrics-server) is optional and should be setup into the cluster.
 
 ## Install
 
