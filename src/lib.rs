@@ -14,6 +14,7 @@ use std::str::FromStr;
 use structopt::clap::arg_enum;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
+use tracing::{warn, instrument};
 
 use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::{Api, ListParams, ObjectList, Request};
@@ -151,6 +152,7 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
     resource_filter.is_empty() || resource_filter.iter().any(|x| name.contains(x))
 }
 
+#[instrument(skip(client, resources))]
 pub async fn collect_from_nodes(client: kube::Client, resources: &mut Vec<Resource>) -> Result<()> {
     let api_nodes: Api<Node> = Api::all(client);
     let nodes = api_nodes
@@ -262,6 +264,7 @@ where
     Ok(())
 }
 
+#[instrument(skip(client, resources))]
 pub async fn collect_from_pods(
     client: kube::Client,
     resources: &mut Vec<Resource>,
@@ -355,6 +358,7 @@ pub fn extract_locations(
 }
 
 //TODO need location of pods (aka node because its not part of metrics)
+#[instrument(skip(client, resources))]
 pub async fn collect_from_metrics(
     client: kube::Client,
     resources: &mut Vec<Resource>,
@@ -544,6 +548,7 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client> {
         .with_context(|| "failed to create the kube client".to_string())
 }
 
+#[instrument]
 pub async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     let client = new_client(cli_opts).await?;
     let mut resources: Vec<Resource> = vec![];
@@ -553,16 +558,23 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     collect_from_pods(client.clone(), &mut resources, &cli_opts.namespace)
         .await
         .with_context(|| "failed to collect info from pods".to_string())?;
-    if cli_opts.utilization {
-        collect_from_metrics(client.clone(), &mut resources)
-            .await
-            .with_context(|| "failed to collect metrics from pods".to_string())?;
-    }
+    let show_utilization = if cli_opts.utilization {
+        match collect_from_metrics(client.clone(), &mut resources)
+            .await {
+                Ok(_) => true,
+                Err(err) => {
+                    //warn!(err);
+                    false
+                }
+            }
+    } else {
+        false
+    };
 
     let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name);
     match &cli_opts.output {
-        Output::table => display_with_prettytable(&res, !&cli_opts.show_zero, cli_opts.utilization),
-        Output::csv => display_as_csv(&res, &cli_opts.group_by, cli_opts.utilization),
+        Output::table => display_with_prettytable(&res, !&cli_opts.show_zero, show_utilization),
+        Output::csv => display_as_csv(&res, &cli_opts.group_by, show_utilization),
     }
     Ok(())
 }

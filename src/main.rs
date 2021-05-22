@@ -1,12 +1,24 @@
-use env_logger;
 use kubectl_view_allocations::{do_main, CliOpts, GroupBy};
-use log::error;
 use structopt::StructOpt;
+use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
+use tracing::error;
+use tracing_subscriber::Registry;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::filter::EnvFilter;
+
+fn init_tracing() {
+    let formatting_layer = BunyanFormattingLayer::new(env!("CARGO_CRATE_NAME").to_owned(), std::io::stderr);
+    let subscriber = Registry::default()
+        .with(EnvFilter::from_default_env())
+        .with(JsonStorageLayer)
+        .with(formatting_layer);
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+}
 
 #[tokio::main]
 async fn main() -> () {
     // std::env::set_var("RUST_LOG", "info,kube=trace");
-    env_logger::init();
+    init_tracing();
     let mut cli_opts = CliOpts::from_args();
     //HACK because I didn't find how to default a multiple opts
     if cli_opts.group_by.is_empty() {

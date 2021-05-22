@@ -12,19 +12,20 @@ homepage = "https://github.com/davidB/kubectl-view-allocations"
 exclude = ["/.github", "/.dependabot", ".gitignore"]
 
 [dependencies]
-tokio = { version = "1.6.0", features = ["full"]}
-kube = { version = "0.53.0", features = ["oauth", "gzip"]}
+tokio = { version = "1.6.0", features = ["full"] }
+kube = { version = "0.55.0", features = ["oauth", "gzip"] }
 k8s-openapi = { version = "0.11.0", features = ["v1_16"], default-features = false }
-log = "0.4"
-env_logger = "0.8.3"
 anyhow = "1.0.40"
 serde = "1.0"
 serde_json = "1.0.64"
 itertools = "0.10.0"
-prettytable-rs = { version = "0.8.0", default-features = false}
+prettytable-rs = { version = "0.8.0", default-features = false }
 structopt = "0.3.21"
 openssl = { version = "0.10.34", features = ["vendored"] }
 chrono = "0.4.19"
+tracing = "0.1"
+tracing-bunyan-formatter = "0.2"
+tracing-subscriber = "0.2"
 
 [[bin]]
 name = "kubectl-view-allocations"
@@ -35,5 +36,5 @@ spectral = "0.6.0"
 [profile.release]
 lto = true
 panic = 'abort'
-opt-level = 'z'  # Optimize for size.
+opt-level = 'z' # Optimize for size.
 codegen-units = 1
