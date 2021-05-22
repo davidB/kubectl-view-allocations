@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
-struct Scale {
+pub struct Scale {
     label: &'static str,
     base: u32,
     pow: i32,
@@ -70,7 +70,7 @@ impl PartialOrd for Scale {
 }
 
 impl Scale {
-    fn min(&self, other: &Scale) -> Scale {
+    pub fn min(&self, other: &Scale) -> Scale {
         if self < other {
             self.clone()
         } else {
@@ -81,8 +81,8 @@ impl Scale {
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Qty {
-    value: i64,
-    scale: Scale,
+    pub value: i64,
+    pub scale: Scale,
 }
 
 impl From<&Qty> for f64 {
@@ -174,7 +174,7 @@ impl Ord for Qty {
     }
 }
 
-fn select_scale_for_add(v1: &Qty, v2: &Qty) -> Scale {
+pub fn select_scale_for_add(v1: &Qty, v2: &Qty) -> Scale {
     if v2.value == 0 {
         v1.scale.clone()
     } else if v1.value == 0 {
