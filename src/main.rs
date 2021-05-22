@@ -1,13 +1,17 @@
 use kubectl_view_allocations::{do_main, CliOpts, GroupBy};
 use structopt::StructOpt;
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing::error;
-use tracing_subscriber::Registry;
-use tracing_subscriber::layer::SubscriberExt;
+use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::filter::EnvFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::Registry;
 
 fn init_tracing() {
-    let formatting_layer = BunyanFormattingLayer::new(env!("CARGO_CRATE_NAME").to_owned(), std::io::stderr);
+    // std::env::set_var("RUST_LOG", "info,kube=trace");
+
+    std::env::set_var("RUST_LOG", std::env::var("RUST_LOG").unwrap_or("warn".to_string()));
+    let formatting_layer =
+        BunyanFormattingLayer::new(env!("CARGO_CRATE_NAME").to_owned(), std::io::stderr);
     let subscriber = Registry::default()
         .with(EnvFilter::from_default_env())
         .with(JsonStorageLayer)
@@ -17,7 +21,6 @@ fn init_tracing() {
 
 #[tokio::main]
 async fn main() -> () {
-    // std::env::set_var("RUST_LOG", "info,kube=trace");
     init_tracing();
     let mut cli_opts = CliOpts::from_args();
     //HACK because I didn't find how to default a multiple opts

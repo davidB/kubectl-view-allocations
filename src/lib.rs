@@ -14,7 +14,7 @@ use std::str::FromStr;
 use structopt::clap::arg_enum;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
-use tracing::{warn, instrument};
+use tracing::{instrument, warn};
 
 use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::{Api, ListParams, ObjectList, Request};
@@ -492,7 +492,7 @@ pub struct CliOpts {
     #[structopt(short, long)]
     pub namespace: Option<String>,
 
-    /// Retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
+    /// Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
     #[structopt(short = "u", long)]
     pub utilization: bool,
 
@@ -558,17 +558,14 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<()> {
     collect_from_pods(client.clone(), &mut resources, &cli_opts.namespace)
         .await
         .with_context(|| "failed to collect info from pods".to_string())?;
-    let show_utilization = if cli_opts.utilization {
-        match collect_from_metrics(client.clone(), &mut resources)
-            .await {
-                Ok(_) => true,
-                Err(err) => {
-                    //warn!(err);
-                    false
-                }
+    let show_utilization = match collect_from_metrics(client.clone(), &mut resources).await {
+        Ok(_) => true,
+        Err(err) => {
+            if cli_opts.utilization {
+                warn!("{:?}", err);
             }
-    } else {
-        false
+            false
+        }
     };
 
     let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name);
