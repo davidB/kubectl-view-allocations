@@ -610,14 +610,16 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
     collect_from_nodes(client.clone(), &mut resources).await?;
     collect_from_pods(client.clone(), &mut resources, &cli_opts.namespace).await?;
 
-    let show_utilization = match collect_from_metrics(client.clone(), &mut resources).await {
-        Ok(_) => true,
-        Err(err) => {
-            if cli_opts.utilization {
-                warn!("{:?}", err);
+    let show_utilization = if cli_opts.utilization {
+        match collect_from_metrics(client.clone(), &mut resources).await {
+            Ok(_) => true,
+            Err(err) => {
+                warn!(?err);
+                false
             }
-            false
         }
+    } else {
+        false
     };
 
     let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name);
