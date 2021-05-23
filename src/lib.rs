@@ -6,6 +6,8 @@ pub mod tree;
 use chrono::prelude::*;
 use core::convert::TryFrom;
 use itertools::Itertools;
+use k8s_openapi::api::core::v1::{Node, Pod};
+use kube::api::{Api, ListParams, ObjectList, Request};
 use prettytable::{cell, format, row, Cell, Row, Table};
 use qty::Qty;
 use std::collections::BTreeMap;
@@ -13,9 +15,7 @@ use std::str::FromStr;
 use structopt::clap::arg_enum;
 use structopt::clap::AppSettings;
 use structopt::StructOpt;
-use tracing::{instrument, warn,info};
-use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::api::{Api, ListParams, ObjectList, Request};
+use tracing::{info, instrument, warn};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -182,12 +182,18 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
 }
 
 #[instrument(skip(client, resources))]
-pub async fn collect_from_nodes(client: kube::Client, resources: &mut Vec<Resource>) -> Result<(), Error> {
+pub async fn collect_from_nodes(
+    client: kube::Client,
+    resources: &mut Vec<Resource>,
+) -> Result<(), Error> {
     let api_nodes: Api<Node> = Api::all(client);
     let nodes = api_nodes
         .list(&ListParams::default())
         .await
-        .map_err(|source| Error::KubeError{context:"list nodes".to_string(), source})?;
+        .map_err(|source| Error::KubeError {
+            context: "list nodes".to_string(),
+            source,
+        })?;
     for node in nodes.items {
         let location = Location {
             node_name: node.metadata.name,
@@ -196,14 +202,14 @@ pub async fn collect_from_nodes(client: kube::Client, resources: &mut Vec<Resour
         if let Some(als) = node.status.and_then(|v| v.allocatable) {
             // add_resource(resources, &location, ResourceUsage::Allocatable, &als)?
             for (kind, value) in als.iter() {
-                let quantity = Qty::from_str(&(value).0)
-                .map_err(|source| Error::ResourceQtyParseError{
-                    location: location.clone(),
-                    qualifier: ResourceQualifier::Utilization,
-                    kind: kind.to_string(),
-                    input: value.0.to_string(),
-                    source,
-            })?;
+                let quantity =
+                    Qty::from_str(&(value).0).map_err(|source| Error::ResourceQtyParseError {
+                        location: location.clone(),
+                        qualifier: ResourceQualifier::Utilization,
+                        kind: kind.to_string(),
+                        input: value.0.to_string(),
+                        source,
+                    })?;
                 resources.push(Resource {
                     kind: kind.clone(),
                     qualifier: ResourceQualifier::Allocatable,
@@ -306,7 +312,10 @@ pub async fn collect_from_pods(
     let pods = api_pods
         .list(&ListParams::default())
         .await
-        .map_err(|source| Error::KubeError{context: "list pods".to_string(), source})?;
+        .map_err(|source| Error::KubeError {
+            context: "list pods".to_string(),
+            source,
+        })?;
     for pod in pods.items.into_iter().filter(is_scheduled) {
         let spec = pod.spec.as_ref();
         let node_name = spec.and_then(|s| s.node_name.clone());
@@ -393,10 +402,19 @@ pub async fn collect_from_metrics(
 ) -> Result<(), Error> {
     let request = Request::new("/apis/metrics.k8s.io/v1beta1/pods");
     let pod_metrics: ObjectList<metrics::PodMetrics> = client
-        .request(request.list(&ListParams::default()).map_err(|source| Error::KubeError{context:"build param to list podmetrics".to_string(), source: source.into()})?)
+        .request(
+            request
+                .list(&ListParams::default())
+                .map_err(|source| Error::KubeError {
+                    context: "build param to list podmetrics".to_string(),
+                    source: source.into(),
+                })?,
+        )
         .await
-        .map_err(|source| Error::KubeError{context:"list podmetrics, maybe Metrics API not available".to_string(), source}
-        )?;
+        .map_err(|source| Error::KubeError {
+            context: "list podmetrics, maybe Metrics API not available".to_string(),
+            source,
+        })?;
     let cpu_kind = "cpu";
     let memory_kind = "memory";
     let locations = extract_locations(resources);
@@ -416,21 +434,21 @@ pub async fn collect_from_metrics(
         let mut memory_utilization = Qty::default();
         for container in pod_metric.containers.into_iter() {
             cpu_utilization += &Qty::from_str(&container.usage.cpu)
-            .map_err(|source| Error::ResourceQtyParseError{
-                location: location.clone(),
-                qualifier: ResourceQualifier::Utilization,
-                kind: cpu_kind.to_string(),
-                input: container.usage.cpu.clone(),
-                source,
-        })?
+                .map_err(|source| Error::ResourceQtyParseError {
+                    location: location.clone(),
+                    qualifier: ResourceQualifier::Utilization,
+                    kind: cpu_kind.to_string(),
+                    input: container.usage.cpu.clone(),
+                    source,
+                })?
                 .max(Qty::lowest_positive());
             memory_utilization += &Qty::from_str(&container.usage.memory)
-                .map_err(|source| Error::ResourceQtyParseError{
-                        location: location.clone(),
-                        qualifier: ResourceQualifier::Utilization,
-                        kind: memory_kind.to_string(),
-                        input: container.usage.memory.clone(),
-                        source,
+                .map_err(|source| Error::ResourceQtyParseError {
+                    location: location.clone(),
+                    qualifier: ResourceQualifier::Utilization,
+                    kind: memory_kind.to_string(),
+                    input: container.usage.memory.clone(),
+                    source,
                 })?
                 .max(Qty::lowest_positive());
         }
@@ -544,43 +562,53 @@ pub async fn refresh_kube_config(cli_opts: &CliOpts) -> Result<(), Error> {
     if let Some(ref context) = cli_opts.context {
         cmd.arg("--context").arg(context);
     }
-    let output = cmd
-        .output()
-        .map_err(|source| Error::CmdError{cmd: "kubectl cluster-info".to_owned(), output: None, source: Some(source)})?;
+    let output = cmd.output().map_err(|source| Error::CmdError {
+        cmd: "kubectl cluster-info".to_owned(),
+        output: None,
+        source: Some(source),
+    })?;
     if !output.status.success() {
-        return Err(
-            Error::CmdError{cmd: "kubectl cluster-info".to_owned(), output: Some(output), source: None}
-);
+        return Err(Error::CmdError {
+            cmd: "kubectl cluster-info".to_owned(),
+            output: Some(output),
+            source: None,
+        });
     }
     Ok(())
 }
 
 pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
-    refresh_kube_config(cli_opts)
-        .await?;
+    refresh_kube_config(cli_opts).await?;
     let client_config = match cli_opts.context {
-        Some(ref context) => {
-            kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
-                context: Some(context.clone()),
-                ..Default::default()
-            })
-            .await.map_err(|source|Error::KubeError{context: "create the kube client config".to_string(), source})?
-        }
-        None => kube::Config::infer().await.map_err(|source|Error::KubeError{context: "create the kube client config".to_string(), source})?,
+        Some(ref context) => kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
+            context: Some(context.clone()),
+            ..Default::default()
+        })
+        .await
+        .map_err(|source| Error::KubeError {
+            context: "create the kube client config".to_string(),
+            source,
+        })?,
+        None => kube::Config::infer()
+            .await
+            .map_err(|source| Error::KubeError {
+                context: "create the kube client config".to_string(),
+                source,
+            })?,
     };
     info!(cluster_url = client_config.cluster_url.to_string().as_str());
-    kube::Client::try_from(client_config)
-    .map_err(|source|Error::KubeError{context: "create the kube client".to_string(), source})
+    kube::Client::try_from(client_config).map_err(|source| Error::KubeError {
+        context: "create the kube client".to_string(),
+        source,
+    })
 }
 
 #[instrument]
 pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
     let client = new_client(cli_opts).await?;
     let mut resources: Vec<Resource> = vec![];
-    collect_from_nodes(client.clone(), &mut resources)
-        .await?;
-    collect_from_pods(client.clone(), &mut resources, &cli_opts.namespace)
-        .await?;
+    collect_from_nodes(client.clone(), &mut resources).await?;
+    collect_from_pods(client.clone(), &mut resources, &cli_opts.namespace).await?;
 
     let show_utilization = match collect_from_metrics(client.clone(), &mut resources).await {
         Ok(_) => true,

@@ -9,7 +9,10 @@ use tracing_subscriber::Registry;
 fn init_tracing() {
     // std::env::set_var("RUST_LOG", "info,kube=trace");
 
-    std::env::set_var("RUST_LOG", std::env::var("RUST_LOG").unwrap_or("warn".to_string()));
+    std::env::set_var(
+        "RUST_LOG",
+        std::env::var("RUST_LOG").unwrap_or("warn".to_string()),
+    );
     let formatting_layer =
         BunyanFormattingLayer::new(env!("CARGO_CRATE_NAME").to_owned(), std::io::stderr);
     let subscriber = Registry::default()

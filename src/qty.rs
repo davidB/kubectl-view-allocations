@@ -9,13 +9,13 @@ use std::str::FromStr;
 pub enum Error {
     #[error("Failed to parse scale in '{0}'")]
     ScaleParseError(String),
-    
+
     #[error("Failed to read Qty (num) from '{input}'")]
-    QtyNumberParseError{
+    QtyNumberParseError {
         input: String,
-        #[source]  // optional if field name is `source`
+        #[source] // optional if field name is `source`
         source: std::num::ParseFloatError,
-    }
+    },
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
@@ -149,8 +149,10 @@ impl FromStr for Qty {
             None => (s, ""),
         };
         let scale = Scale::from_str(scale_str.trim())?;
-        let num = f64::from_str(num_str)
-            .map_err(|source| Error::QtyNumberParseError{input: num_str.to_owned(), source})?;
+        let num = f64::from_str(num_str).map_err(|source| Error::QtyNumberParseError {
+            input: num_str.to_owned(),
+            source,
+        })?;
         let value = (num * f64::from(&scale) * 1000f64) as i64;
         Ok(Qty { value, scale })
     }
