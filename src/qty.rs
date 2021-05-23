@@ -2,9 +2,21 @@
 // see [Managing Compute Resources for Containers - Kubernetes](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
 //TODO rewrite to support exponent, ... see [apimachinery/quantity.go at master · kubernetes/apimachinery](https://github.com/kubernetes/apimachinery/blob/master/pkg/api/resource/quantity.go)
 
-use anyhow::{anyhow, Context, Error};
 use std::cmp::Ordering;
 use std::str::FromStr;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Failed to parse scale in '{0}'")]
+    ScaleParseError(String),
+    
+    #[error("Failed to read Qty (num) from '{input}'")]
+    QtyNumberParseError{
+        input: String,
+        #[source]  // optional if field name is `source`
+        source: std::num::ParseFloatError,
+    }
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Scale {
@@ -38,7 +50,7 @@ impl FromStr for Scale {
             .iter()
             .find(|v| v.label == s)
             .cloned()
-            .ok_or_else(|| anyhow!("scale not found in {}", s))
+            .ok_or_else(|| Error::ScaleParseError(s.to_owned()))
     }
 }
 
@@ -136,10 +148,9 @@ impl FromStr for Qty {
             Some(pos) => (&s[..pos], &s[pos..]),
             None => (s, ""),
         };
-        let scale = Scale::from_str(scale_str.trim())
-            .with_context(|| format!("Failed to read Qty (scale) from {}", s))?;
+        let scale = Scale::from_str(scale_str.trim())?;
         let num = f64::from_str(num_str)
-            .with_context(|| format!("Failed to read Qty (num) from {}", s))?;
+            .map_err(|source| Error::QtyNumberParseError{input: num_str.to_owned(), source})?;
         let value = (num * f64::from(&scale) * 1000f64) as i64;
         Ok(Qty { value, scale })
     }
