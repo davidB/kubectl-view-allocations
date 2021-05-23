@@ -3,6 +3,8 @@
 //! like a tree (multi-root)
 //!
 //! ```rust
+//! use kubectl_view_allocations::tree::provide_prefix;
+//! 
 //! let items = vec![
 //!     "1/2",
 //!     "1/2/3",
