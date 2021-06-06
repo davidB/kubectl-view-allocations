@@ -205,7 +205,7 @@ pub async fn collect_from_nodes(
                 let quantity =
                     Qty::from_str(&(value).0).map_err(|source| Error::ResourceQtyParseError {
                         location: location.clone(),
-                        qualifier: ResourceQualifier::Utilization,
+                        qualifier: ResourceQualifier::Allocatable,
                         kind: kind.to_string(),
                         input: value.0.to_string(),
                         source,
