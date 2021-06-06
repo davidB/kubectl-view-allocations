@@ -9,12 +9,12 @@ license = "CC0-1.0"
 keywords = ["kubectl", "k8s"]
 repository = "https://github.com/davidB/kubectl-view-allocations"
 homepage = "https://github.com/davidB/kubectl-view-allocations"
-exclude = ["/.github", "/.dependabot", ".gitignore"]
+exclude = ["/.github", ".gitignore"]
 
 [dependencies]
-tokio = { version = "1.6.0", features = ["full"] }
-kube = { version = "0.55.0", features = ["client", "oauth", "gzip", "native-tls"], default-features = false }
-k8s-openapi = { version = "0.11.0", features = ["v1_16"], default-features = false }
+tokio = { version = "1.6", features = ["full"], optional = true }
+kube = { version = "0.55", features = ["client", "oauth", "gzip", "native-tls"], default-features = false }
+k8s-openapi = { version = "0.11", default-features = false }
 thiserror = "1.0"
 serde = "1.0"
 serde_json = "1.0.64"
@@ -27,8 +27,17 @@ tracing = "0.1"
 tracing-bunyan-formatter = "0.2"
 tracing-subscriber = "0.2"
 
+[features]
+default = ["cli"]
+cli = ["tokio", "k8s-openapi/v1_16"]
+
 [[bin]]
 name = "kubectl-view-allocations"
+path = "src/main.rs"
+doc = false
+# HACK to define dependencies only for cli
+# see https://github.com/rust-lang/cargo/issues/1982
+required-features = ["cli"]
 
 [dev-dependencies]
 spectral = "0.6.0"
