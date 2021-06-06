@@ -11,7 +11,7 @@ fn init_tracing() {
 
     std::env::set_var(
         "RUST_LOG",
-        std::env::var("RUST_LOG").unwrap_or("warn".to_string()),
+        std::env::var("RUST_LOG").unwrap_or_else(|_| "warn".to_string()),
     );
     let formatting_layer =
         BunyanFormattingLayer::new(env!("CARGO_CRATE_NAME").to_owned(), std::io::stderr);
@@ -23,7 +23,7 @@ fn init_tracing() {
 }
 
 #[tokio::main]
-async fn main() -> () {
+async fn main() {
     init_tracing();
     let mut cli_opts = CliOpts::from_args();
     //HACK because I didn't find how to default a multiple opts

@@ -272,7 +272,7 @@ fn push_resources(
     // add a "pods" resource as well
     resources.push(Resource {
         kind: "pods".to_string(),
-        qualifier: qualifier.clone(),
+        qualifier,
         quantity: Qty::from_str("1")?,
         location: location.clone(),
     });
@@ -378,7 +378,7 @@ pub async fn collect_from_pods(
 }
 
 pub fn extract_locations(
-    resources: &Vec<Resource>,
+    resources: &[Resource],
 ) -> std::collections::HashMap<(String, String), Location> {
     resources
         .iter()
@@ -651,14 +651,13 @@ pub fn display_as_csv(
     let datetime = Utc::now().to_rfc3339();
     for (k, oqtys) in data {
         if let Some(qtys) = oqtys {
-            let mut row = vec![];
-            row.push(datetime.clone());
-            row.push(
+            let mut row = vec![
+                datetime.clone(),
                 group_by
                     .get(k.len() - 1)
                     .map(|x| x.to_string())
                     .unwrap_or_else(|| empty.clone()),
-            );
+            ];
             for i in 0..group_by.len() {
                 row.push(k.get(i).cloned().unwrap_or_else(|| empty.clone()));
             }
@@ -749,9 +748,11 @@ pub fn display_with_prettytable(
             k.last().map(|x| x.as_str()).unwrap_or("???")
         );
         if let Some(qtys) = oqtys {
-            let style = if qtys.requested > qtys.limit || qtys.utilization > qtys.limit {
-                "rFy"
-            } else if is_empty(&qtys.requested) || is_empty(&qtys.limit) {
+            let style = if qtys.requested > qtys.limit
+                || qtys.utilization > qtys.limit
+                || is_empty(&qtys.requested)
+                || is_empty(&qtys.limit)
+            {
                 "rFy"
             } else {
                 "rFg"
