@@ -701,6 +701,16 @@ fn add_cells_for_cvs(row: &mut Vec<String>, oqty: &Option<Qty>, o100: &Option<Qt
     };
 }
 
+#[cfg(not(prettytable))]
+pub fn display_with_prettytable(
+    _data: &[(Vec<String>, Option<QtyByQualifier>)],
+    _filter_full_zero: bool,
+    _show_utilization: bool,
+) {
+    warn!("feature 'prettytable' not enabled");
+}
+
+#[cfg(prettytable)]
 pub fn display_with_prettytable(
     data: &[(Vec<String>, Option<QtyByQualifier>)],
     filter_full_zero: bool,
@@ -783,6 +793,7 @@ fn is_empty(oqty: &Option<Qty>) -> bool {
     }
 }
 
+#[cfg(prettytable)]
 fn make_cell_for_prettytable(oqty: &Option<Qty>, o100: &Option<Qty>) -> Cell {
     let txt = match oqty {
         None => "__".to_string(),
