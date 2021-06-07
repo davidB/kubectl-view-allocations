@@ -8,6 +8,7 @@ use core::convert::TryFrom;
 use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::{Api, ListParams, ObjectList, Request};
+#[cfg(prettytable)]
 use prettytable::{cell, format, row, Cell, Row, Table};
 use qty::Qty;
 use std::collections::BTreeMap;
@@ -786,6 +787,7 @@ pub fn display_with_prettytable(
     table.printstd();
 }
 
+#[cfg(prettytable)]
 fn is_empty(oqty: &Option<Qty>) -> bool {
     match oqty {
         Some(qty) => qty.is_zero(),
