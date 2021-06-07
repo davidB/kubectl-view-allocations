@@ -195,12 +195,12 @@ pub async fn collect_from_nodes(
             context: "list nodes".to_string(),
             source,
         })?;
-    compute_node_utilizations(nodes, resources).await?;
+    extract_allocatable_from_nodes(nodes, resources).await?;
     Ok(())
 }
 
 #[instrument(skip(node_list, resources))]
-pub async fn compute_node_utilizations(
+pub async fn extract_allocatable_from_nodes(
     node_list: ObjectList<Node>,
     resources: &mut Vec<Resource>,
 ) -> Result<(), Error> {
@@ -326,12 +326,12 @@ pub async fn collect_from_pods(
             context: "list pods".to_string(),
             source,
         })?;
-    compute_pod_utilizations(pods, resources).await?;
+    extract_allocatable_from_pods(pods, resources).await?;
     Ok(())
 }
 
 #[instrument(skip(pod_list, resources))]
-pub async fn compute_pod_utilizations(
+pub async fn extract_allocatable_from_pods(
     pod_list: ObjectList<Pod>,
     resources: &mut Vec<Resource>,
 ) -> Result<(), Error> {
@@ -434,12 +434,12 @@ pub async fn collect_from_metrics(
             context: "list podmetrics, maybe Metrics API not available".to_string(),
             source,
         })?;
-    compute_utilizations_metrics(pod_metrics, resources).await?;
+    extract_utilizations_from_pod_metrics(pod_metrics, resources).await?;
     Ok(())
 }
 
 #[instrument(skip(pod_metrics, resources))]
-pub async fn compute_utilizations_metrics(
+pub async fn extract_utilizations_from_pod_metrics(
     pod_metrics: ObjectList<metrics::PodMetrics>,
     resources: &mut Vec<Resource>,
 ) -> Result<(), Error> {
