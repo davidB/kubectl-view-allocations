@@ -150,7 +150,7 @@ pub fn make_qualifiers(
     out
 }
 
-pub fn make_group_x_qualifier(
+fn make_group_x_qualifier(
     rsrcs: &[&Resource],
     prefix: &[String],
     group_by_fct: &[fn(&Resource) -> Option<String>],
