@@ -131,7 +131,7 @@ pub fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
     }
 }
 
-fn make_qualifiers(
+pub fn make_qualifiers(
     rsrcs: &[Resource],
     group_by: &[GroupBy],
     resource_names: &[String],
@@ -195,7 +195,16 @@ pub async fn collect_from_nodes(
             context: "list nodes".to_string(),
             source,
         })?;
-    for node in nodes.items {
+    extract_allocatable_from_nodes(nodes, resources).await?;
+    Ok(())
+}
+
+#[instrument(skip(node_list, resources))]
+pub async fn extract_allocatable_from_nodes(
+    node_list: ObjectList<Node>,
+    resources: &mut Vec<Resource>,
+) -> Result<(), Error> {
+    for node in node_list.items {
         let location = Location {
             node_name: node.metadata.name,
             ..Location::default()
@@ -317,7 +326,16 @@ pub async fn collect_from_pods(
             context: "list pods".to_string(),
             source,
         })?;
-    for pod in pods.items.into_iter().filter(is_scheduled) {
+    extract_allocatable_from_pods(pods, resources).await?;
+    Ok(())
+}
+
+#[instrument(skip(pod_list, resources))]
+pub async fn extract_allocatable_from_pods(
+    pod_list: ObjectList<Pod>,
+    resources: &mut Vec<Resource>,
+) -> Result<(), Error> {
+    for pod in pod_list.items.into_iter().filter(is_scheduled) {
         let spec = pod.spec.as_ref();
         let node_name = spec.and_then(|s| s.node_name.clone());
         let metadata = &pod.metadata;
@@ -416,6 +434,15 @@ pub async fn collect_from_metrics(
             context: "list podmetrics, maybe Metrics API not available".to_string(),
             source,
         })?;
+    extract_utilizations_from_pod_metrics(pod_metrics, resources).await?;
+    Ok(())
+}
+
+#[instrument(skip(pod_metrics, resources))]
+pub async fn extract_utilizations_from_pod_metrics(
+    pod_metrics: ObjectList<metrics::PodMetrics>,
+    resources: &mut Vec<Resource>,
+) -> Result<(), Error> {
     let cpu_kind = "cpu";
     let memory_kind = "memory";
     let locations = extract_locations(resources);
