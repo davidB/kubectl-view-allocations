@@ -22,7 +22,7 @@ Columns displayed :
 
 ## Install
 
-### Via binary
+### Via download binary
 
 Download from [github's release](https://github.com/davidB/kubectl-view-allocations/releases/latest) or use script
 
@@ -44,7 +44,7 @@ kubectl krew install view-allocations
 cargo install kubectl-view-allocations
 ```
 
-## As lib in Cargo.toml
+### As lib in Cargo.toml
 
 If you want to embed some function or struct of the plugin into an other rust code:
 
