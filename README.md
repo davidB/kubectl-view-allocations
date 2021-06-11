@@ -44,6 +44,18 @@ kubectl krew install view-allocations
 cargo install kubectl-view-allocations
 ```
 
+## As lib in Cargo.toml
+
+If you want to embed some function or struct of the plugin into an other rust code:
+
+```toml
+[dependencies]
+kubectl-view-allocations = { version = "0.14", default-features = false }
+
+[features]
+default = ["k8s-openapi/v1_20"]
+```
+
 ## Usage
 
 ### Show help
