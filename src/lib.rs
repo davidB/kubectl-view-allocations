@@ -209,7 +209,7 @@ pub async fn extract_allocatable_from_nodes(
             node_name: node.metadata.name,
             ..Location::default()
         };
-        if let Some(als) = node.status.and_then(|v| v.allocatable) {
+        if let Some(als) = node.status.map(|v| v.allocatable) {
             // add_resource(resources, &location, ResourceUsage::Allocatable, &als)?
             for (kind, value) in als.iter() {
                 let quantity =
@@ -254,10 +254,11 @@ pub fn is_scheduled(pod: &Pod) -> bool {
                     "Succeeded" | "Failed" => Some(false),
                     "Running" => Some(true),
                     "Unknown" => None, // this is the case when a node is down (kubelet is not responding)
-                    "Pending" => ps.conditions.as_ref().map(|s| {
-                        s.iter()
-                            .any(|c| c.type_ == "PodScheduled" && c.status == "True")
-                    }),
+                    "Pending" => Some(
+                        ps.conditions
+                            .iter()
+                            .any(|c| c.type_ == "PodScheduled" && c.status == "True"),
+                    ),
                     &_ => None, // should not happen
                 }
             })
@@ -352,30 +353,32 @@ pub async fn extract_allocatable_from_pods(
         let containers = spec.map(|s| s.containers.clone()).unwrap_or_default();
         for container in containers.into_iter() {
             if let Some(requirements) = container.resources {
-                if let Some(r) = requirements.requests {
-                    process_resources(&mut resource_requests, &r, std::ops::Add::add)?
-                }
-                if let Some(l) = requirements.limits {
-                    process_resources(&mut resource_limits, &l, std::ops::Add::add)?
-                }
+                process_resources(
+                    &mut resource_requests,
+                    &requirements.requests,
+                    std::ops::Add::add,
+                )?;
+                process_resources(
+                    &mut resource_limits,
+                    &requirements.limits,
+                    std::ops::Add::add,
+                )?;
             }
         }
         // handle initContainers
-        let init_containers = spec
-            .and_then(|s| s.init_containers.clone())
-            .unwrap_or_default();
+        let init_containers = spec.map(|s| s.init_containers.clone()).unwrap_or_default();
         for container in init_containers.into_iter() {
             if let Some(requirements) = container.resources {
-                if let Some(r) = requirements.requests {
-                    process_resources(&mut resource_requests, &r, std::cmp::max)?
-                }
-                if let Some(l) = requirements.limits {
-                    process_resources(&mut resource_limits, &l, std::cmp::max)?
-                }
+                process_resources(
+                    &mut resource_requests,
+                    &requirements.requests,
+                    std::cmp::max,
+                )?;
+                process_resources(&mut resource_limits, &requirements.limits, std::cmp::max)?;
             }
         }
         // handler overhead (add to both requests and limits)
-        if let Some(overhead) = spec.and_then(|s| s.overhead.as_ref()) {
+        if let Some(overhead) = spec.map(|s| &s.overhead) {
             process_resources(&mut resource_requests, &overhead, std::ops::Add::add)?;
             process_resources(&mut resource_limits, &overhead, std::ops::Add::add)?;
         }
