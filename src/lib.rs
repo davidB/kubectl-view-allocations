@@ -7,7 +7,7 @@ use chrono::prelude::*;
 use core::convert::TryFrom;
 use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::api::{Api, ListParams, ObjectList, Request};
+use kube::api::{Api, ListParams, ObjectList};
 #[cfg(prettytable)]
 use prettytable::{cell, format, row, Cell, Row, Table};
 use qty::Qty;
@@ -422,21 +422,15 @@ pub async fn collect_from_metrics(
     client: kube::Client,
     resources: &mut Vec<Resource>,
 ) -> Result<(), Error> {
-    let request = Request::new("/apis/metrics.k8s.io/v1beta1/pods");
-    let pod_metrics: ObjectList<metrics::PodMetrics> = client
-        .request(
-            request
-                .list(&ListParams::default())
-                .map_err(|source| Error::KubeError {
-                    context: "build param to list podmetrics".to_string(),
-                    source: source.into(),
-                })?,
-        )
+    let api_pod_metrics: Api<metrics::PodMetrics> = Api::all(client);
+    let pod_metrics = api_pod_metrics
+        .list(&ListParams::default())
         .await
         .map_err(|source| Error::KubeError {
             context: "list podmetrics, maybe Metrics API not available".to_string(),
             source,
         })?;
+
     extract_utilizations_from_pod_metrics(pod_metrics, resources).await?;
     Ok(())
 }
