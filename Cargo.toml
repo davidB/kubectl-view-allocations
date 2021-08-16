@@ -14,7 +14,7 @@ exclude = ["/.github", ".gitignore"]
 [dependencies]
 tokio = { version="1.6", features=["full"], optional=true }
 kube = { version="0.57", features=["client", "oauth", "gzip", "native-tls"], default-features=false }
-k8s-openapi = { version="0.12", default-features=false }
+k8s-openapi = { version="0.13", default-features=false }
 thiserror = "1.0"
 serde = "1.0"
 serde_json = "1.0"
