@@ -53,7 +53,7 @@ required-features = ["cli"]
 
 [dev-dependencies]
 spectral = "0.6.0"
-anyhow = "*"
+anyhow = "1.0"
 
 [profile.release]
 lto = true
