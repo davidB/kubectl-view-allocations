@@ -30,7 +30,7 @@ openssl = { version = "0.10", features = ["vendored"] }
 chrono = "0.4"
 tracing = "0.1"
 tracing-bunyan-formatter = { version = "0.2", optional = true }
-tracing-subscriber = { version = "0.2", optional = true }
+tracing-subscriber = { version = "0.3", optional = true }
 
 [features]
 default = ["cli"]
