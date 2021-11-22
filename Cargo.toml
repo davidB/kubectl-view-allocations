@@ -13,7 +13,7 @@ exclude = ["/.github", ".gitignore"]
 
 [dependencies]
 tokio = { version = "1.6", features = ["full"], optional = true }
-kube = { version = "0.60", features = [
+kube = { version = "0.64", features = [
     "client",
     "oauth",
     "gzip",
