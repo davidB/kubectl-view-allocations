@@ -4,6 +4,9 @@ pub mod tree;
 
 // mod human_format;
 use chrono::prelude::*;
+// use clap::AppSettings;
+use clap::ArgEnum;
+use clap::Parser;
 use core::convert::TryFrom;
 use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Node, Pod};
@@ -13,9 +16,6 @@ use prettytable::{cell, format, row, Cell, Row, Table};
 use qty::Qty;
 use std::collections::BTreeMap;
 use std::str::FromStr;
-use structopt::clap::arg_enum;
-use structopt::clap::AppSettings;
-use structopt::StructOpt;
 use tracing::{info, instrument, warn};
 
 #[derive(thiserror::Error, Debug)]
@@ -502,15 +502,13 @@ pub async fn extract_utilizations_from_pod_metrics(
     Ok(())
 }
 
-arg_enum! {
-    #[derive(Debug, Eq, PartialEq)]
-    #[allow(non_camel_case_types)]
-    pub enum GroupBy {
-        resource,
-        node,
-        pod,
-        namespace,
-    }
+#[derive(Debug, Eq, PartialEq, ArgEnum, Clone)]
+#[allow(non_camel_case_types)]
+pub enum GroupBy {
+    resource,
+    node,
+    pod,
+    namespace,
 }
 
 impl GroupBy {
@@ -544,47 +542,51 @@ impl GroupBy {
     }
 }
 
-arg_enum! {
-    #[derive(Debug, Eq, PartialEq)]
-    #[allow(non_camel_case_types)]
-    pub enum Output {
-        table,
-        csv,
+impl std::fmt::Display for GroupBy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.to_string())
     }
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(
-    global_settings(&[AppSettings::ColoredHelp, AppSettings::VersionlessSubcommands]),
+#[derive(Debug, Eq, PartialEq, ArgEnum, Clone)]
+#[allow(non_camel_case_types)]
+pub enum Output {
+    table,
+    csv,
+}
+
+#[derive(Parser, Debug)]
+#[clap(
+    // global_settings(&[AppSettings::ColoredHelp, AppSettings::VersionlessSubcommands]),
     author = env!("CARGO_PKG_HOMEPAGE"), about
 )]
 pub struct CliOpts {
     /// The name of the kubeconfig context to use
-    #[structopt(long)]
+    #[clap(long)]
     pub context: Option<String>,
 
     /// Show only pods from this namespace
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub namespace: Option<String>,
 
     /// Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
-    #[structopt(short = "u", long)]
+    #[clap(short = 'u', long)]
     pub utilization: bool,
 
     /// Show lines with zero requested and zero limit and zero allocatable
-    #[structopt(short = "z", long)]
+    #[clap(short = 'z', long)]
     pub show_zero: bool,
 
     /// Filter resources shown by name(s), by default all resources are listed
-    #[structopt(short, long)]
+    #[clap(short, long)]
     pub resource_name: Vec<String>,
 
     /// Group information hierarchically (default: -g resource -g node -g pod)
-    #[structopt(short, long, possible_values = &GroupBy::variants(), case_insensitive = true)]
+    #[clap(short, long, arg_enum, ignore_case = true)]
     pub group_by: Vec<GroupBy>,
 
     /// Output format
-    #[structopt(short, long, possible_values = &Output::variants(), case_insensitive = true, default_value = "table")]
+    #[clap(short, long, arg_enum, ignore_case = true, default_value = "table")]
     pub output: Output,
 }
 

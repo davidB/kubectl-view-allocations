@@ -1,5 +1,5 @@
+use clap::Parser;
 use kubectl_view_allocations::{do_main, CliOpts, GroupBy};
-use structopt::StructOpt;
 use tracing::error;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::filter::EnvFilter;
@@ -25,7 +25,7 @@ fn init_tracing() {
 #[tokio::main]
 async fn main() {
     init_tracing();
-    let mut cli_opts = CliOpts::from_args();
+    let mut cli_opts = CliOpts::parse();
     //HACK because I didn't find how to default a multiple opts
     if cli_opts.group_by.is_empty() {
         cli_opts.group_by.push(GroupBy::resource);

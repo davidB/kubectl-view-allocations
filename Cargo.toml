@@ -2,7 +2,7 @@
 name = "kubectl-view-allocations"
 version = "0.14.7-dev"
 authors = ["David Bernard"]
-edition = "2018"
+edition = "2021"
 description = "kubectl plugin to list allocations (cpu, memory, gpu,... X utilization, requested, limit, allocatable,...)"
 readme = "README.md"
 license = "CC0-1.0"
@@ -25,7 +25,7 @@ serde = "1.0"
 serde_json = "1.0"
 itertools = "0.10"
 prettytable-rs = { version = "0.8", default-features = false, optional = true }
-structopt = "0.3"
+clap = { version = "3.0", features = ["derive"] }
 openssl = { version = "0.10", features = ["vendored"] }
 chrono = "0.4"
 tracing = "0.1"
