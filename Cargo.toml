@@ -13,7 +13,7 @@ exclude = ["/.github", ".gitignore"]
 
 [dependencies]
 tokio = { version = "1.6", features = ["full"], optional = true }
-kube = { version = "0.60", features = [
+kube = { version = "0.65", features = [
     "client",
     "oauth",
     "gzip",
@@ -29,8 +29,10 @@ structopt = "0.3"
 openssl = { version = "0.10", features = ["vendored"] }
 chrono = "0.4"
 tracing = "0.1"
-tracing-bunyan-formatter = { version = "0.2", optional = true }
-tracing-subscriber = { version = "0.2", optional = true }
+tracing-bunyan-formatter = { version = "0.3", optional = true }
+tracing-subscriber = { version = "0.3", optional = true, default-features = false, features = [
+    "env-filter",
+] }
 
 [features]
 default = ["cli"]

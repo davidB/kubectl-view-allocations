@@ -47,6 +47,18 @@ pub enum Error {
         context: String,
         source: kube::Error,
     },
+
+    #[error("Failed to {context}")]
+    KubeConfigError {
+        context: String,
+        source: kube::config::KubeconfigError,
+    },
+
+    #[error("Failed to {context}")]
+    KubeInferConfigError {
+        context: String,
+        source: kube::config::InferConfigError,
+    },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -607,13 +619,13 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
             ..Default::default()
         })
         .await
-        .map_err(|source| Error::KubeError {
+        .map_err(|source| Error::KubeConfigError {
             context: "create the kube client config".to_string(),
             source,
         })?,
         None => kube::Config::infer()
             .await
-            .map_err(|source| Error::KubeError {
+            .map_err(|source| Error::KubeInferConfigError {
                 context: "create the kube client config".to_string(),
                 source,
             })?,
