@@ -327,7 +327,7 @@ pub async fn collect_from_pods(
     namespace: &Option<String>,
 ) -> Result<(), Error> {
     let api_pods: Api<Pod> = if let Some(ns) = namespace {
-        Api::namespaced(client, &ns)
+        Api::namespaced(client, ns)
     } else {
         Api::all(client)
     };
@@ -388,8 +388,8 @@ pub async fn extract_allocatable_from_pods(
         }
         // handler overhead (add to both requests and limits)
         if let Some(ref overhead) = spec.and_then(|s| s.overhead.clone()) {
-            process_resources(&mut resource_requests, &overhead, std::ops::Add::add)?;
-            process_resources(&mut resource_limits, &overhead, std::ops::Add::add)?;
+            process_resources(&mut resource_requests, overhead, std::ops::Add::add)?;
+            process_resources(&mut resource_limits, overhead, std::ops::Add::add)?;
         }
         // push these onto resources
         push_resources(
@@ -729,7 +729,7 @@ fn add_cells_for_cvs(row: &mut Vec<String>, oqty: &Option<Qty>, o100: &Option<Qt
             row.push(format!("{:.2}", f64::from(qty)));
             row.push(match o100 {
                 None => "".to_string(),
-                Some(q100) => format!("{:.0}%", qty.calc_percentage(&q100)),
+                Some(q100) => format!("{:.0}%", qty.calc_percentage(q100)),
             });
         }
     };
