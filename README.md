@@ -63,29 +63,43 @@ default = ["k8s-openapi/v1_20"]
 ```txt
 kubectl-view-allocations -h
 
-kubectl-view-allocations 0.13.0
+kubectl-view-allocations 0.14.7
 https://github.com/davidB/kubectl-view-allocations
-kubectl plugin to list allocations (cpu, memory, gpu,... X requested, limit, allocatable,...)
+kubectl plugin to list allocations (cpu, memory, gpu,... X utilization, requested, limit,
+allocatable,...)
 
 USAGE:
-    kubectl-view-allocations [FLAGS] [OPTIONS]
-
-FLAGS:
-    -h, --help           Prints help information
-    -z, --show-zero      Show lines with zero requested and zero limit and zero allocatable
-    -u, --utilization    Retrieve utilization (for cpu and memory), require to have metrics-server
-                         https://github.com/kubernetes-sigs/metrics-server
-    -V, --version        Prints version information
+    kubectl-view-allocations [OPTIONS]
 
 OPTIONS:
-        --context <context>                   The name of the kubeconfig context to use
-    -g, --group-by <group-by>...              Group information hierarchically (default: -g resource -g node -g pod)
-                                              [possible values: resource, node, pod,
-                                              namespace]
-    -n, --namespace <namespace>               Show only pods from this namespace
-    -o, --output <output>                     Output format [default: table]  [possible values: table,
-                                              csv]
-    -r, --resource-name <resource-name>...    Filter resources shown by name(s), by default all resources are listed
+        --context <CONTEXT>
+            The name of the kubeconfig context to use
+
+    -g, --group-by <GROUP_BY>
+            Group information hierarchically (default: -g resource -g node -g pod) [possible values:
+            resource, node, pod, namespace]
+
+    -h, --help
+            Print help information
+
+    -n, --namespace <NAMESPACE>
+            Show only pods from this namespace
+
+    -o, --output <OUTPUT>
+            Output format [default: table] [possible values: table, csv]
+
+    -r, --resource-name <RESOURCE_NAME>
+            Filter resources shown by name(s), by default all resources are listed
+
+    -u, --utilization
+            Force to retrieve utilization (for cpu and memory), require to have metrics-server
+            https://github.com/kubernetes-sigs/metrics-server
+
+    -V, --version
+            Print version information
+
+    -z, --show-zero
+            Show lines with zero requested and zero limit and zero allocatable
 ```
 
 ### Show gpu allocation
@@ -131,38 +145,25 @@ OPTIONS:
 ```sh
 > kubectl-view-allocations -u
 
- Resource                                            Utilization     Requested         Limit  Allocatable     Free
-  cpu                                                 (0%) 69.0m   (6%) 950.0m   (1%) 100.0m         16.0     15.1
-  └─ kind-control-plane                               (0%) 69.0m   (6%) 950.0m   (1%) 100.0m         16.0     15.1
-     ├─ coredns-74ff55c5b-ckc9w                             1.0m        100.0m            __           __       __
-     ├─ coredns-74ff55c5b-kmfll                             1.0m        100.0m            __           __       __
-     ├─ etcd-kind-control-plane                            14.0m        100.0m            __           __       __
-     ├─ kindnet-f5f82                                       1.0m        100.0m        100.0m           __       __
-     ├─ kube-apiserver-kind-control-plane                  38.0m        250.0m            __           __       __
-     ├─ kube-controller-manager-kind-control-plane          9.0m        200.0m            __           __       __
-     ├─ kube-proxy-vh8c2                                    1.0m            __            __           __       __
-     ├─ kube-scheduler-kind-control-plane                   1.0m        100.0m            __           __       __
-     ├─ local-path-provisioner-78776bfc44-l4v2m             1.0m            __            __           __       __
-     ├─ metrics-server-5b78d5f9c6-2scnc                     1.0m            __            __           __       __
-     └─ nvidia-device-plugin-daemonset-ctldt                1.0m            __            __           __       __
-  ephemeral-storage                                           __  (0%) 100.0Mi            __      468.4Gi  468.4Gi
-  └─ kind-control-plane                                       __  (0%) 100.0Mi            __      468.4Gi  468.4Gi
-     └─ etcd-kind-control-plane                               __       100.0Mi            __           __       __
-  memory                                            (1%) 466.3Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi   30.9Gi
-  └─ kind-control-plane                             (1%) 466.3Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi   30.9Gi
-     ├─ coredns-74ff55c5b-ckc9w                           11.3Mi        70.0Mi       170.0Mi           __       __
-     ├─ coredns-74ff55c5b-kmfll                           10.5Mi        70.0Mi       170.0Mi           __       __
-     ├─ etcd-kind-control-plane                           72.7Mi       100.0Mi            __           __       __
-     ├─ kindnet-f5f82                                      9.1Mi        50.0Mi        50.0Mi           __       __
-     ├─ kube-apiserver-kind-control-plane                255.0Mi            __            __           __       __
-     ├─ kube-controller-manager-kind-control-plane        46.6Mi            __            __           __       __
-     ├─ kube-proxy-vh8c2                                  15.7Mi            __            __           __       __
-     ├─ kube-scheduler-kind-control-plane                 18.5Mi            __            __           __       __
-     ├─ local-path-provisioner-78776bfc44-l4v2m            8.4Mi            __            __           __       __
-     ├─ metrics-server-5b78d5f9c6-2scnc                   15.2Mi            __            __           __       __
-     └─ nvidia-device-plugin-daemonset-ctldt               3.5Mi            __            __           __       __
-  pods                                                        __    (10%) 11.0    (10%) 11.0        110.0     99.0
-  └─ kind-control-plane                                       __    (10%) 11.0    (10%) 11.0        110.0     99.0
+ Resource                                        Utilization     Requested         Limit  Allocatable   Free 
+  cpu                                              (0%) 9.0m  (10%) 200.0m            __          2.0    1.8 
+  └─ lima-rancher-desktop                          (0%) 9.0m  (10%) 200.0m            __          2.0    1.8 
+     ├─ coredns-96cc4f57d-57cj9                         1.0m        100.0m            __           __     __ 
+     ├─ local-path-provisioner-84bb864455-czzcg         1.0m            __            __           __     __ 
+     ├─ metrics-server-ff9dbcb6c-kb7x9                  4.0m        100.0m            __           __     __ 
+     ├─ svclb-traefik-ggd2q                             2.0m            __            __           __     __ 
+     └─ traefik-55fdc6d984-sqp57                        1.0m            __            __           __     __ 
+  ephemeral-storage                                       __            __            __        99.8G     __ 
+  └─ lima-rancher-desktop                                 __            __            __        99.8G     __ 
+  memory                                         (1%) 51.0Mi  (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi 
+  └─ lima-rancher-desktop                        (1%) 51.0Mi  (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi 
+     ├─ coredns-96cc4f57d-57cj9                       11.5Mi        70.0Mi       170.0Mi           __     __ 
+     ├─ local-path-provisioner-84bb864455-czzcg        6.2Mi            __            __           __     __ 
+     ├─ metrics-server-ff9dbcb6c-kb7x9                14.9Mi        70.0Mi            __           __     __ 
+     ├─ svclb-traefik-ggd2q                          548.0Ki            __            __           __     __ 
+     └─ traefik-55fdc6d984-sqp57                      17.9Mi            __            __           __     __ 
+  pods                                                    __      (5%) 5.0      (5%) 5.0        110.0  105.0 
+  └─ lima-rancher-desktop                                 __      (5%) 5.0      (5%) 5.0        110.0  105.0
 ```
 
 ### Group by namespaces
@@ -170,44 +171,14 @@ OPTIONS:
 ```sh
 > kubectl-view-allocations -g namespace
 
- Resource              Requested          Limit  Allocatable     Free
-  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9
-  ├─ default                42.1           57.4
-  ├─ dev                     5.3          102.1
-  ├─ dns-external         200.0m             __
-  ├─ docs                 150.0m         600.0m
-  ├─ ingress-nginx        200.0m            1.0
-  ├─ kube-system             2.1            1.4
-  ├─ loki                    1.2            2.4
-  ├─ monitoring              3.5            7.0
-  ├─ sharelatex           700.0m            2.4
-  └─ weave                   1.3            1.8
-  ephemeral-storage     (0%)  __       (0%)  __        38.4T    38.4T
-  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi
-  ├─ default              34.6Gi         60.0Gi
-  ├─ dev                   5.3Gi         22.1Gi
-  ├─ dns-external        140.0Mi        340.0Mi
-  ├─ docs                448.0Mi        768.0Mi
-  ├─ ingress-nginx       256.0Mi          1.0Gi
-  ├─ kube-system         840.0Mi          1.0Gi
-  ├─ loki                  1.5Gi          1.6Gi
-  ├─ monitoring            5.9Gi          5.7Gi
-  ├─ sharelatex            2.5Gi          7.0Gi
-  └─ weave                 1.3Gi          1.8Gi
-  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0
-  └─ dev                    10.0           10.0
-  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k
-  ├─ cert-manager            3.0            3.0
-  ├─ default                13.0           13.0
-  ├─ dev                     9.0            9.0
-  ├─ dns-external            2.0            2.0
-  ├─ docs                    8.0            8.0
-  ├─ ingress-nginx           2.0            2.0
-  ├─ kube-system            43.0           43.0
-  ├─ loki                   12.0           12.0
-  ├─ monitoring             38.0           38.0
-  ├─ sharelatex              3.0            3.0
-  └─ weave                  14.0           14.0
+ Resource               Requested         Limit  Allocatable   Free 
+  cpu                (10%) 200.0m            __          2.0    1.8 
+  └─ kube-system           200.0m            __           __     __ 
+  ephemeral-storage            __            __        99.8G     __ 
+  memory             (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi 
+  └─ kube-system          140.0Mi       170.0Mi           __     __ 
+  pods                   (5%) 5.0      (5%) 5.0        110.0  105.0 
+  └─ kube-system              5.0           5.0           __     __ 
 ```
 
 ### Show as csv

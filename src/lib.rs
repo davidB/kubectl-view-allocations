@@ -558,7 +558,7 @@ pub enum Output {
 #[derive(Parser, Debug)]
 #[clap(
     // global_settings(&[AppSettings::ColoredHelp, AppSettings::VersionlessSubcommands]),
-    author = env!("CARGO_PKG_HOMEPAGE"), about
+    author = env!("CARGO_PKG_HOMEPAGE"), about, version
 )]
 pub struct CliOpts {
     /// The name of the kubeconfig context to use
