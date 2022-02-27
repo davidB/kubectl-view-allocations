@@ -88,7 +88,7 @@ script = [
   strip ${DIST_PATH}/${CARGO_MAKE_CRATE_NAME}
   cp LICENSE* ${DIST_PATH}/ || echo "ignore if no LICENSE"
   # "cp README* ${DIST_PATH}/
-  tar -czvf "${DIST_PATH}.${DIST_EXT}" -C "${DIST_PATH}" "${CARGO_MAKE_CRATE_NAME}"
+  tar -czvf "${DIST_PATH}.${DIST_EXT}" -C "${DIST_PATH}" "${CARGO_MAKE_CRATE_NAME}" "LICENSE.txt"
   ''',
 ]
 
