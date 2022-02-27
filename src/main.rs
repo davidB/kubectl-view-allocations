@@ -11,7 +11,7 @@ fn init_tracing() {
 
     std::env::set_var(
         "RUST_LOG",
-        std::env::var("RUST_LOG").unwrap_or_else(|_| "warn".to_string()),
+        std::env::var("RUST_LOG").unwrap_or_else(|_| "warn,kube_client=error".to_string()),
     );
     let formatting_layer =
         BunyanFormattingLayer::new(env!("CARGO_CRATE_NAME").to_owned(), std::io::stderr);
