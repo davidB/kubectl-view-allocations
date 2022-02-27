@@ -60,4 +60,5 @@ jobs:
           # asset_name: ${{ steps.zip-release-ci-flow.outputs.dist_file_name }}
           # tag: ${{ github.ref }}
           tag: ${{ steps.zip-release-ci-flow.outputs.dist_version }}
+          prerelease: ${{ github.ref == format('refs/tags/{0}', steps.zip-release-ci-flow.outputs.dist_version) }}
           overwrite: true
