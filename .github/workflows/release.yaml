@@ -16,24 +16,17 @@ jobs:
       matrix:
         rust_toolchain: ["stable"]
         os:
-          - imageName: ubuntu-16.04
-            target: x86_64-unknown-linux-gnu
-            profile: linux
-          - imageName: "macOS-latest"
-            target: x86_64-apple-darwin
-            profile: mac
-          # - imageName: 'windows-2019'
-          #   target: x86_64-pc-windows-msvc
-          #   profile: windows
-    env:
-      TARGET: ${{matrix.os.target}}
+          - target_platform: x86_64-unknown-linux-gnu
+            imageName: ubuntu-latest
+            cross: "true"
+          - target_platform: x86_64-apple-darwin
+            imageName: "macOS-latest"
+          - target_platform: aarch64-apple-darwin
+            imageName: "macOS-latest"
+          - target_platform: x86_64-pc-windows-msvc
+            imageName: windows-latest
 
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust_toolchain }}
-          override: true
-      - uses: davidB/rust-cargo-make@v1
       - uses: actions/checkout@v2.4.0
       - uses: actions/cache@v2
         with:
@@ -44,11 +37,27 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust_toolchain }}
+          target: ${{ matrix.os.target_platform }}
+          override: true
+          profile: minimal
+      - uses: davidB/rust-cargo-make@v1
       - name: Make zip-release-ci-flow
-        run: cargo make --disable-check-for-updates --profile ${{ matrix.os.profile }} zip-release-ci-flow
-      - name: Upload to gitHub release
-        run: cargo make --disable-check-for-updates --profile ${{ matrix.os.profile }} github-upload-flow
+        id: zip-release-ci-flow
+        run: cargo make --disable-check-for-updates zip-release-ci-flow
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref }}
-          # GITHUB_REPOSITORY: ${{ GITHUB_REPOSITORY }}
+          TARGET: ${{ matrix.os.target_platform }}
+          CROSS: ${{ matrix.os.cross }}
+          # DEVELOPER_DIR: "/Applications/Xcode_11.app/Contents/Developer"
+      - name: Upload binaries to release
+        # if: startsWith(github.ref, 'refs/tags/')
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ steps.zip-release-ci-flow.outputs.dist_file_path }}
+          # asset_name: ${{ steps.zip-release-ci-flow.outputs.dist_file_name }}
+          # tag: ${{ github.ref }}
+          tag: ${{ steps.zip-release-ci-flow.outputs.dist_version }}
+          overwrite: true

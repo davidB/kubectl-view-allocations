@@ -3,49 +3,46 @@
 [env]
 RUST_TEST_THREADS = "1"
 CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER = "cli-[a-z0-9]*$\\|makers-[a-z0-9]*$\\|${CARGO_MAKE_TEST_COVERAGE_DEFAULT_BINARY_FILTER}"
-# GITHUB_REPOSITORY=
-# GITHUB_TOKEN=
-
 # TARGET is  {arch}-{vendor}-{sys}-{abi} the output of rustc --print target-list
-# TARGET = "${CARGO_MAKE_RUST_TARGET_ARCH}-${CARGO_MAKE_RUST_TARGET_VENDOR}-${CARGO_MAKE_RUST_TARGET_OS}-${CARGO_MAKE_RUST_TARGET_ENV}"
-DIST_VERSION="${CARGO_MAKE_CRATE_VERSION}"
-# DIST_VERSION="${GITHUB_REF}"
-DIST_NAME = "${CARGO_MAKE_CRATE_NAME}_${DIST_VERSION}-${TARGET}"
-DIST_EXT="tar.gz"
-DIST_PATH="target/dist/${DIST_NAME}"
-LIBZ_SYS_STATIC="1"
-PKG_CONFIG_ALLOW_CROSS="1"
+TARGET_AUTO = { source = "${CARGO_MAKE_RUST_TARGET_ARCH}-${CARGO_MAKE_RUST_TARGET_VENDOR}-${CARGO_MAKE_RUST_TARGET_OS}-${CARGO_MAKE_RUST_TARGET_ENV}", mapping = { x86_64-apple-macos- = "x86_64-apple-darwin" } }
+TARGET = { condition = { env_not_set = ["TARGET"] }, value = "${TARGET_AUTO}" }
+LIBZ_SYS_STATIC = "1"
+PKG_CONFIG_ALLOW_CROSS = "1"
 # see https://github.com/naftulikay/rust-openssl-static-example
-OPENSSL_STATIC="1"
+OPENSSL_STATIC = "1"
 # OPENSSL_LIB_DIR="/usr/lib64"
 # OPENSSL_INCLUDE_DIR="/usr/include/openssl"
-GITHUB_RELEASE_VERSION="v0.7.2"
+CARGO_BUILD_CMD = { source = "${CROSS}", default_value = "cargo", mapping = { true = "cross" } }
 
-[env.linux]
-GITHUB_RELEASE_PATH="target/bin/linux/amd64"
-GITHUB_RELEASE_PATH_REV="../../../../"
+[tasks.init.mac.env]
+# workaround for "____chkstk_darwin ... which was built for Mac OS X 10.15 /usr/lib/libSystem.B.dylib"
+# see https://github.com/sharkdp/bat/issues/680
+# if DevelopmentTools.clang_build_version >= 1010
+CFLAGS = "-fno-stack-check"
+#RUSTFLAGS = "-Clink-args=-Wl,-bind_at_load"
+# XCode  --mmacosx-version-min=10.9 ?
+MACOSX_DEPLOYMENT_TARGET = "10.9"
 
-[env.mac]
-GITHUB_RELEASE_PATH="target/bin/darwin/amd64"
-GITHUB_RELEASE_PATH_REV="../../../../"
-
-[env.windows]
-DIST_PATH="target\\dist\\${DIST_NAME}"
-DIST_EXT="zip"
-GITHUB_RELEASE_PATH="target\\bin\\windows\\amd64"
-GITHUB_RELEASE_PATH_REV="..\\..\\..\\..\\"
+[tasks.dist_env.env]
+DIST_VERSION = "${CARGO_MAKE_CRATE_VERSION}"
+DIST_NAME = "${CARGO_MAKE_CRATE_NAME}_${DIST_VERSION}-${TARGET}"
+DIST_EXT = { source = "${CARGO_MAKE_RUST_TARGET_OS}", default_value = "tar.gz", mapping = { windows = "zip" } }
+DIST_PATH = "target/dist/${DIST_NAME}"
 
 [tasks.debug]
-script_runner = "@shell"
-script = [
-  'echo "FILE=${GITHUB_RELEASE_PATH_REV}${DIST_PATH}.${DIST_EXT}"',
-  'echo "TARGET=${TARGET}"',
-  'echo "DIST_VERSION=${DIST_VERSION}"',
-  'echo "TAG=${TAG}"',
-  'echo "GITHUB_REPOSITORY=${GITHUB_REPOSITORY}"',
-  'echo "GITHUB_REF=${GITHUB_REF}"',
-  'echo ${CARGO_MAKE_PROFILE} : ${DIST_PATH} : ${GITHUB_RELEASE_PATH} : ${platform}',
-]
+dependencies = ["dist_env"]
+script_runner = "@duckscript"
+script = ['''
+  echo "PROFILE=${PROFILE}"
+  echo "MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET}"
+  echo "FILE=${DIST_PATH}.${DIST_EXT}"
+  echo "TARGET=${TARGET}"
+  echo "DIST_VERSION=${DIST_VERSION}"
+  echo "TAG=${TAG}"
+  echo "GITHUB_REF=${GITHUB_REF}"
+  echo "CARGO_BUILD_CMD=${CARGO_BUILD_CMD}"
+  echo ${CARGO_MAKE_PROFILE} : ${DIST_PATH} : ${platform}
+  ''']
 
 [tasks.zip-release-ci-flow]
 description = "Compiles the binary in release mode and zips it up"
@@ -53,71 +50,94 @@ category = "CI"
 condition = { env_set = ["TARGET"] }
 dependencies = [
   # "clean",
+  "dist_env",
   "build-release-for-target",
-  "zip-release-binary-for-target"
+  "zip-release-binary-for-target",
 ]
+script_runner = "@duckscript"
+script = ['''
+  echo "::set-output name=dist_file_path::${DIST_PATH}.${DIST_EXT}"
+  echo "::set-output name=dist_file_name::${DIST_NAME}.${DIST_EXT}"
+  echo "::set-output name=dist_version::${DIST_VERSION}"
+  ''']
+
+[tasks.setup-cross]
+description = "Install cross from https://github.com/cross-rs/cross"
+condition = { env_set = ["TARGET", "CROSS"] }
+install_crate = { crate_name = "cross", binary = "cross", test_arg = "--help" }
 
 [tasks.build-release-for-target]
 description = "Makes a release build for a given target"
-condition = { env_set = [ "TARGET" ] }
-command = "cargo"
-args = [
-  "build",
-  "--release",
-  "--all-features",
-  "--target",
-  "${TARGET}"
-]
+condition = { env_set = ["TARGET"] }
+dependencies = ["setup-cross"]
+command = "${CARGO_BUILD_CMD}"
+args = ["build", "--release", "--all-features", "--target", "${TARGET}"]
 
 [tasks.zip-release-binary-for-target]
+windows_alias = "zip-release-binary-for-target_windows"
 description = "Zips up the release binary, README, and license(s)"
 category = "Publish"
-condition = { env_set = [ "TARGET" ] }
+condition = { env_set = ["TARGET"] }
 # env = { "LIBZ_SYS_STATIC" = "1", "PKG_CONFIG_ALLOW_CROSS" = "1" }
 script_runner = "@shell"
 script = [
-  "rm -Rf ${DIST_PATH}*",
-  "mkdir -p ${DIST_PATH}",
-  "cp target/${TARGET}/release/${CARGO_MAKE_CRATE_NAME} ${DIST_PATH}/",
-  "strip ${DIST_PATH}/${CARGO_MAKE_CRATE_NAME}",
-  "cp README.md LICENSE.txt ${DIST_PATH}/",
-  # "zip -r ${OUTPUT_NAME}.zip ${DIST_PATH}",
-  "tar -czvf ${DIST_PATH}.${DIST_EXT} -C ${DIST_PATH} ${CARGO_MAKE_CRATE_NAME} LICENSE.txt"
+  '''
+  rm -Rf ${DIST_PATH}*
+  mkdir -p ${DIST_PATH}
+  cp target/${TARGET}/release/${CARGO_MAKE_CRATE_NAME} ${DIST_PATH}/
+  strip ${DIST_PATH}/${CARGO_MAKE_CRATE_NAME}
+  cp LICENSE* ${DIST_PATH}/ || echo "ignore if no LICENSE"
+  # "cp README* ${DIST_PATH}/
+  tar -czvf "${DIST_PATH}.${DIST_EXT}" -C "${DIST_PATH}" "${CARGO_MAKE_CRATE_NAME}"
+  ''',
 ]
 
-[tasks.zip-release-binary-for-target.windows]
-script_runner = "@shell"
+[tasks.zip-release-binary-for-target_windows]
+script_runner = "powershell"
+script_extension = "ps1"
 script = [
-  "setlocal enableextensions",
-  "rm -Rf ${DIST_PATH}*",
-  "md ${DIST_PATH}",
-  "powershell copy-item -path target\\${TARGET}\\release\\${CARGO_MAKE_CRATE_NAME}.exe -destination ${DIST_PATH}",
-  # "powershell copy-item -path README.md -destination ${DIST_PATH}",
-  "powershell copy-item -path LICENSE.txt -destination ${DIST_PATH}",
-  # "dir ${OUTPUT_NAME}",
-  "powershell Compress-Archive -Path ${DIST_PATH}\\* -DestinationPath ${DIST_PATH}.${DIST_EXT} -CompressionLevel Optimal",
+  '''
+  Set-PSDebug -Strict # -Trace 1
+  $ErrorActionPreference = "Stop"
+  Remove-Item -Recurse -Force "${env:DIST_PATH}" -ErrorAction SilentlyContinue
+  New-Item -ItemType directory -Path "${env:DIST_PATH}"
+  Copy-Item -Path "target\\${env:TARGET}\\release\\${env:CARGO_MAKE_CRATE_NAME}.exe" -Destination "${env:DIST_PATH}"
+  Copy-Item -Path "LICENSE*" -Destination "${env:DIST_PATH}"
+  # Copy-Item -Path "README*" -Destination "${env:DIST_PATH}"
+  Compress-Archive -Path "${env:DIST_PATH}\\*" -DestinationPath "${env:DIST_PATH}.${env:DIST_EXT}" -CompressionLevel Optimal -Force
+  ''',
 ]
 
 [tasks.update-changelog]
-category="Publish"
-install_crate = {crate_name="gitmoji-changelog", binary = "gitmoji-changelog", test_arg = "--help"}
-script = [
-  "rm -Rf CHANGELOG.md",
-  "gitmoji-changelog -r x.y.z-dev -o CHANGELOG.md .",
-]
+category = "Publish"
+install_crate = { crate_name = "gitmoji-changelog", binary = "gitmoji-changelog", test_arg = "--help" }
+script = ['''
+  rm -Rf CHANGELOG.md
+  gitmoji-changelog -r x.y.z-dev -o CHANGELOG.md .
+  ''']
+
+[tasks.update-book]
+category = "Publish"
+install_crate = { crate_name = "mdbook", binary = "mdbook", test_arg = "--help" }
+script = ['''
+  cd docs
+  mdbook clean
+  mdbook build
+  ''']
 
 [tasks.update-bom]
-category="Publish"
-install_crate = { crate_name = "cargo-bom", binary = "cargo", test_arg = "bom"}
-script = [
-  "cargo bom > BOM.txt",
-]
+category = "Publish"
+install_crate = { crate_name = "cargo-bom", binary = "cargo", test_arg = "bom" }
+script = ["cargo bom > BOM.txt"]
 
 [tasks.pre-publish]
-env ={ COMMIT_MSG=":pencil: pre-publish update book, changelog, bom" }
-run_task= "update-docs"
+dependencies = ["update-docs"]
 
 [tasks.update-docs]
+env = { COMMIT_MSG = ":pencil: pre-publish update book, changelog" }
+run_task = "_update-docs-do"
+
+[tasks._update-docs-do]
 dependencies = [
   "update-changelog",
   "update-bom",
@@ -128,78 +148,3 @@ dependencies = [
 [tasks.publish]
 command = "cargo"
 args = ["release", "${@}"]
-
-[tasks.github-upload-flow]
-description = "Upload dist on githup release"
-condition = { env_set = [ "GITHUB_REPOSITORY", "GITHUB_TOKEN", "DIST_NAME", "DIST_PATH", "DIST_EXT"], channels = ["stable"] }
-dependencies = [
-  "github-release-install",
-  "github-upload",
-]
-
-[tasks.github-release-install]
-
-[tasks.github-release-install.mac]
-script= [
-'''
-cd target
-echo download "https://github.com/aktau/github-release/releases/download/${GITHUB_RELEASE_VERSION}/darwin-amd64-github-release.tar.bz2"
-curl -o darwin-amd64-github-release.tar.bz2 -sS -L "https://github.com/aktau/github-release/releases/download/${GITHUB_RELEASE_VERSION}/darwin-amd64-github-release.tar.bz2"
-tar -xzvf darwin-amd64-github-release.tar.bz2
-'''
-]
-
-[tasks.github-release-install.linux]
-script= [
-'''
-cd target
-echo download "https://github.com/aktau/github-release/releases/download/${GITHUB_RELEASE_VERSION}/linux-amd64-github-release.tar.bz2"
-curl -o linux-amd64-github-release.tar.bz2 -sS -L "https://github.com/aktau/github-release/releases/download/${GITHUB_RELEASE_VERSION}/linux-amd64-github-release.tar.bz2"
-tar -xjvf linux-amd64-github-release.tar.bz2
-'''
-]
-
-[tasks.github-release-install.windows]
-script_runner = "powershell"
-script_extension = "ps1"
-# see https://blog.jourdant.me/post/3-ways-to-download-files-with-powershell
-script= [
-'''
-$url ="https://github.com/aktau/github-release/releases/download/$env:GITHUB_RELEASE_VERSION/windows-amd64-github-release.zip"
-$output = "windows-amd64-github-release.zip"
-cd target
-[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
-echo $url
-Invoke-WebRequest -Uri $url -OutFile $output
-Expand-Archive -LiteralPath $output -Destination .
-'''
-]
-
-[tasks.github-upload]
-# github-release use env variable GITHUB_TOKEN, GITHUB_REPO, GITHUB_USER
-condition = { env_set = [ "GITHUB_RELEASE_PATH", "GITHUB_REPOSITORY", "GITHUB_TOKEN", "DIST_NAME", "DIST_PATH", "DIST_EXT"] }
-script_runner = "@shell"
-script= [
-'''
-cd ${GITHUB_RELEASE_PATH}
-export GITHUB_USER=$(dirname $GITHUB_REPOSITORY)
-export GITHUB_REPO=$(basename $GITHUB_REPOSITORY)
-./github-release release --tag "${DIST_VERSION}" || echo "ignore error"
-./github-release upload --tag "${DIST_VERSION}" --name "${DIST_NAME}.${DIST_EXT}" --file "${GITHUB_RELEASE_PATH_REV}${DIST_PATH}.${DIST_EXT}"
-''',
-]
-
-[tasks.github-upload.windows]
-# github-release use env variable GITHUB_TOKEN, GITHUB_REPO, GITHUB_USER
-condition = { env_set = [ "GITHUB_RELEASE_PATH", "GITHUB_REPOSITORY", "GITHUB_TOKEN", "DIST_NAME", "DIST_PATH", "DIST_EXT"] }
-script_runner = "powershell"
-script_extension = "ps1"
-script= [
-# multi-line command with \ at EOL doesn't work on windows
-'''
-cd ${GITHUB_RELEASE_PATH}
-$GITHUB_USER,$GITHUB_REPO=$GITHUB_REPOSITORY.split("/")
-github-release.exe release --tag "${DIST_VERSION}" -ErrorAction SilentlyContinue
-github-release.exe upload --tag "${DIST_VERSION}" --name "${DIST_NAME}.${DIST_EXT}" --file "${GITHUB_RELEASE_PATH_REV}${DIST_PATH}.${DIST_EXT}"
-''',
-]

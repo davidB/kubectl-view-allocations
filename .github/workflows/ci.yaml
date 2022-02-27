@@ -16,22 +16,24 @@ jobs:
       matrix:
         rust_toolchain: ["stable"]
         os:
-          - imageName: ubuntu-16.04
-            target: x86_64-unknown-linux-gnu
-            profile: linux
-          - imageName: "macOS-latest"
-            target: x86_64-apple-darwin
-            profile: mac
-          # - imageName: 'windows-2019'
-          #   target: x86_64-pc-windows-msvc
-          #   profile: windows
+          - imageName: ubuntu-latest
+            profile_rustup: default
+            profile_ci_flow: ci-static-code-analysis-tasks
+            target_platform: x86_64-unknown-linux-gnu
+          - target_platform: x86_64-apple-darwin
+            imageName: "macOS-latest"
+            profile_rustup: minimal
+            profile_ci_flow: none
+          # - imageName: "macOS-latest"
+          #   profile_rustup: minimal
+          #   profile_ci_flow: none
+          #   target_platform: aarch64-apple-darwin
+          # - imageName: windows-latest
+          #   profile_rustup: minimal
+          #   profile_ci_flow: none
+          #   target_platform:
 
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust_toolchain }}
-          override: true
-      - uses: davidB/rust-cargo-make@v1
       - uses: actions/checkout@v2.4.0
       - uses: actions/cache@v2
         with:
@@ -42,8 +44,22 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust_toolchain }}
+          target: ${{ matrix.os.target_platform }}
+          override: true
+          profile: ${{ matrix.os.profile_rustup }}
+      - uses: davidB/rust-cargo-make@v1
       - name: Run tests
-        run: cargo make --disable-check-for-updates --profile ${{ matrix.os.profile }} --env TARGET=${{matrix.os.target}} ci-flow
+        run: cargo make --disable-check-for-updates --profile "${{ matrix.os.profile_ci_flow }}" ci-flow
+        env:
+          TARGET: ${{ matrix.os.target_platform }}
+          # for list of xcode sdk see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/software-installed-on-github-hosted-runners#xcode
+          # DEVELOPER_DIR: "/Applications/Xcode_11.app/Contents/Developer"
+          CARGO_MAKE_RUN_CODECOV: "false"
+          # to have CODECOV_TOKEN go to https://codecov.io/gh/${GITHUB_USER}/${GITHUB_REPO}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   integration:
     # Integration tests are linux only

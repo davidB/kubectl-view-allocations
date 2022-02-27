@@ -1,9 +1,10 @@
-pre-release-commit-message=":rocket: (cargo-release) version {{version}}"
-post-release-commit-message=":construction: (cargo-release) start next development iteration {{next_version}}"
-tag-prefix=""
-tag-name="{{prefix}}{{version}}"
-tag-message=":bookmark: {{version}}"
-dev-version-ext="dev"
+pre-release-commit-message = ":rocket: (cargo-release) version {{version}}"
+post-release-commit-message = ":construction: (cargo-release) start next development iteration {{next_version}}"
+tag-prefix = ""
+tag-name = "{{prefix}}{{version}}"
+tag-message = ":bookmark: {{version}}"
+dev-version-ext = "dev"
+dev-version = true
 # pre-release-replacements = [
 #     {file="CHANGELOG.md", search="x.y.z-dev", replace="{{version}}"},
 #     {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}"}
