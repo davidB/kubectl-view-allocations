@@ -544,7 +544,7 @@ impl GroupBy {
 
 impl std::fmt::Display for GroupBy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_string())
+        write!(f, "{:?}", self)
     }
 }
 
