@@ -143,7 +143,7 @@ impl FromStr for Qty {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (num_str, scale_str): (&str, &str) = match s.find(|c: char| {
-            !c.is_digit(10) && c != 'E' && c != 'e' && c != '+' && c != '-' && c != '.'
+            !c.is_ascii_digit() && c != 'E' && c != 'e' && c != '+' && c != '-' && c != '.'
         }) {
             Some(pos) => (&s[..pos], &s[pos..]),
             None => (s, ""),
