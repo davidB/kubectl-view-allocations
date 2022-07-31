@@ -544,7 +544,13 @@ impl GroupBy {
 
 impl std::fmt::Display for GroupBy {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_string())
+        let s = match self {
+            Self::resource => "resource",
+            Self::node => "node",
+            Self::pod => "pod",
+            Self::namespace => "namespace",
+        };
+        f.write_str(s)
     }
 }
 
