@@ -27,7 +27,7 @@ pub struct Scale {
 
 // should be sorted in DESC
 #[rustfmt::skip]
-static SCALES: [Scale;13] = [
+static SCALES: [Scale;15] = [
     Scale{ label:"Pi", base: 2, pow: 50},
     Scale{ label:"Ti", base: 2, pow: 40},
     Scale{ label:"Gi", base: 2, pow: 30},
@@ -40,6 +40,8 @@ static SCALES: [Scale;13] = [
     Scale{ label:"k", base: 10, pow: 3},
     Scale{ label:"", base: 10, pow: 0},
     Scale{ label:"m", base: 10, pow: -3},
+    Scale{ label:"u", base: 10, pow: -6},
+    Scale{ label:"μ", base: 10, pow: -6},
     Scale{ label:"n", base: 10, pow: -9},
 ];
 
@@ -316,6 +318,8 @@ mod tests {
             ("1m", "1.0m"),
             ("1000000n", "1000000.0n"),
             // lowest precision is m, under 1m value is trunked
+            ("1u", "0.0u"),
+            ("1μ", "0.0μ"),
             ("1n", "0.0n"),
             ("999999n", "0.0n"),
         ];
