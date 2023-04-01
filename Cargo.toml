@@ -12,22 +12,22 @@ homepage = "https://github.com/davidB/kubectl-view-allocations"
 exclude = ["/.github", ".gitignore"]
 
 [dependencies]
-tokio = { version = "1.6", features = ["full"], optional = true }
+chrono = "0.4"
+clap = { version = "3.2", features = ["derive"] }
+itertools = "0.10"
+k8s-openapi = { version = "0.15.0", default-features = false }
 kube = { version = "0.74.0", features = [
     "client",
     "oauth",
     "gzip",
     "native-tls",
 ], default-features = false }
-k8s-openapi = { version = "0.15.0", default-features = false }
-thiserror = "1.0"
+openssl = { version = "0.10", features = ["vendored"] }
+prettytable-rs = { version = "0.10", default-features = false, optional = true }
 serde = "1.0"
 serde_json = "1.0"
-itertools = "0.10"
-prettytable-rs = { version = "0.10", default-features = false, optional = true }
-clap = { version = "3.2", features = ["derive"] }
-openssl = { version = "0.10", features = ["vendored"] }
-chrono = "0.4"
+thiserror = "1.0"
+tokio = { version = "1.6", features = ["full"], optional = true }
 tracing = "0.1"
 tracing-bunyan-formatter = { version = "0.3", optional = true }
 tracing-subscriber = { version = "0.3", optional = true, default-features = false, features = [
@@ -54,8 +54,8 @@ doc = false
 required-features = ["cli"]
 
 [dev-dependencies]
-spectral = "0.6.0"
 anyhow = "1.0"
+spectral = "0.6.0"
 
 [profile.release]
 lto = true
