@@ -56,9 +56,9 @@ dependencies = [
 ]
 script_runner = "@duckscript"
 script = ['''
-  echo "::set-output name=dist_file_path::${DIST_PATH}.${DIST_EXT}"
-  echo "::set-output name=dist_file_name::${DIST_NAME}.${DIST_EXT}"
-  echo "::set-output name=dist_version::${DIST_VERSION}"
+  echo "dist_file_path=${DIST_PATH}.${DIST_EXT}" >> $GITHUB_OUTPUT
+  echo "dist_file_name=${DIST_NAME}.${DIST_EXT}" >> $GITHUB_OUTPUT
+  echo "dist_version=${DIST_VERSION}" >> $GITHUB_OUTPUT
   ''']
 
 [tasks.setup-cross]
@@ -85,7 +85,6 @@ script = [
   rm -Rf ${DIST_PATH}*
   mkdir -p ${DIST_PATH}
   cp target/${TARGET}/release/${CARGO_MAKE_CRATE_NAME} ${DIST_PATH}/
-  strip ${DIST_PATH}/${CARGO_MAKE_CRATE_NAME}
   cp LICENSE* ${DIST_PATH}/ || echo "ignore if no LICENSE"
   # "cp README* ${DIST_PATH}/
   tar -czvf "${DIST_PATH}.${DIST_EXT}" -C "${DIST_PATH}" "${CARGO_MAKE_CRATE_NAME}" "LICENSE.txt"

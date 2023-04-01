@@ -9,6 +9,9 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+*"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ${{ matrix.os.imageName }}
@@ -17,6 +20,12 @@ jobs:
         rust_toolchain: ["stable"]
         os:
           - target_platform: x86_64-unknown-linux-gnu
+            imageName: ubuntu-latest
+            cross: "true"
+          - target_platform: x86_64-unknown-linux-musl
+            imageName: ubuntu-latest
+            cross: "true"
+          - target_platform: aarch64-unknown-linux-musl
             imageName: ubuntu-latest
             cross: "true"
           - target_platform: x86_64-apple-darwin

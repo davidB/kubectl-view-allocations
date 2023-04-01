@@ -66,6 +66,7 @@ lto = true
 panic = 'abort'
 opt-level = 'z'   # Optimize for size.
 codegen-units = 1
+strip = true
 
 [profile.dev.package.backtrace]
 opt-level = 3
