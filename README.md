@@ -60,51 +60,30 @@ default = ["k8s-openapi/v1_20"]
 
 ### Show help
 
-```txt
-kubectl-view-allocations -h
+```sh
+> kubectl-view-allocations -h
 
-kubectl-view-allocations 0.14.7
+kubectl plugin to list allocations (cpu, memory, gpu,... X utilization, requested, limit, allocatable,...)
+
+Usage: kubectl-view-allocations [OPTIONS]
+
+Options:
+      --context <CONTEXT>              The name of the kubeconfig context to use
+  -n, --namespace <NAMESPACE>          Show only pods from this namespace
+  -u, --utilization                    Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
+  -z, --show-zero                      Show lines with zero requested and zero limit and zero allocatable
+  -r, --resource-name <RESOURCE_NAME>  Filter resources shown by name(s), by default all resources are listed
+  -g, --group-by <GROUP_BY>            Group information hierarchically (default: -g resource -g node -g pod) [possible values: resource, node, pod, namespace]
+  -o, --output <OUTPUT>                Output format [default: table] [possible values: table, csv]
+  -h, --help                           Print help
+  -V, --version                        Print version
+
 https://github.com/davidB/kubectl-view-allocations
-kubectl plugin to list allocations (cpu, memory, gpu,... X utilization, requested, limit,
-allocatable,...)
-
-USAGE:
-    kubectl-view-allocations [OPTIONS]
-
-OPTIONS:
-        --context <CONTEXT>
-            The name of the kubeconfig context to use
-
-    -g, --group-by <GROUP_BY>
-            Group information hierarchically (default: -g resource -g node -g pod) [possible values:
-            resource, node, pod, namespace]
-
-    -h, --help
-            Print help information
-
-    -n, --namespace <NAMESPACE>
-            Show only pods from this namespace
-
-    -o, --output <OUTPUT>
-            Output format [default: table] [possible values: table, csv]
-
-    -r, --resource-name <RESOURCE_NAME>
-            Filter resources shown by name(s), by default all resources are listed
-
-    -u, --utilization
-            Force to retrieve utilization (for cpu and memory), require to have metrics-server
-            https://github.com/kubernetes-sigs/metrics-server
-
-    -V, --version
-            Print version information
-
-    -z, --show-zero
-            Show lines with zero requested and zero limit and zero allocatable
 ```
 
 ### Show gpu allocation
 
-```txt
+```sh
 
 > kubectl-view-allocations -r gpu
 

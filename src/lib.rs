@@ -4,9 +4,7 @@ pub mod tree;
 
 // mod human_format;
 use chrono::prelude::*;
-// use clap::AppSettings;
-use clap::Parser;
-use clap::ValueEnum;
+use clap::{Parser, ValueEnum};
 use core::convert::TryFrom;
 use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Node, Pod};
@@ -562,40 +560,41 @@ pub enum Output {
 }
 
 #[derive(Parser, Debug)]
-#[clap(
-    // global_settings(&[AppSettings::ColoredHelp, AppSettings::VersionlessSubcommands]),
-    author = env!("CARGO_PKG_HOMEPAGE"), about, version, long_about = None
+#[command(
+    version, about,
+    after_help(env!("CARGO_PKG_HOMEPAGE")),
+    propagate_version = true
 )]
 pub struct CliOpts {
     /// The name of the kubeconfig context to use
-    #[clap(long, value_parser)]
+    #[arg(long, value_parser)]
     pub context: Option<String>,
 
     /// Show only pods from this namespace
-    #[clap(short, long, value_parser)]
+    #[arg(short, long, value_parser)]
     pub namespace: Option<String>,
 
     /// Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
-    #[clap(short = 'u', long, value_parser)]
+    #[arg(short = 'u', long, value_parser)]
     pub utilization: bool,
 
     /// Show lines with zero requested and zero limit and zero allocatable
-    #[clap(short = 'z', long, value_parser)]
+    #[arg(short = 'z', long, value_parser)]
     pub show_zero: bool,
 
     /// Filter resources shown by name(s), by default all resources are listed
-    #[clap(short, long, value_parser)]
+    #[arg(short, long, value_parser)]
     pub resource_name: Vec<String>,
 
     /// Group information hierarchically (default: -g resource -g node -g pod)
-    #[clap(short, long, arg_enum, ignore_case = true, value_parser)]
+    #[arg(short, long, value_enum, ignore_case = true, value_parser)]
     pub group_by: Vec<GroupBy>,
 
     /// Output format
-    #[clap(
+    #[arg(
         short,
         long,
-        arg_enum,
+        value_enum,
         ignore_case = true,
         default_value = "table",
         value_parser
