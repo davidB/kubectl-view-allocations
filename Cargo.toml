@@ -21,6 +21,9 @@ kube = { version = "0.80.0", features = [
     "client",
     "oauth",
     "gzip",
+    # with 0.80.0, "rustls-tls" failed with `presented server name type wasn't supported`
+    # on local rancher-desktop (`rustls/dangerous_configuration` is enabled on kube-rs
+    # "rustls-tls",
     "openssl-tls",
 ], default-features = false }
 openssl = { version = "0.10", features = ["vendored"] }
@@ -39,13 +42,12 @@ tracing-subscriber = { version = "0.3", optional = true, default-features = fals
 [features]
 default = ["cli"]
 cli = [
-    "tokio",
+    "dep:tokio",
     "k8s-openapi/v1_22",
-    "tracing-subscriber",
-    "tracing-bunyan-formatter",
+    "dep:tracing-subscriber",
     "prettytable",
 ]
-prettytable = ["prettytable-rs"]
+prettytable = ["dep:prettytable-rs"]
 
 [[bin]]
 name = "kubectl-view-allocations"
