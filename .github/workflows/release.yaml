@@ -13,61 +13,49 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os.imageName }}
-    strategy:
-      matrix:
-        rust_toolchain: ["stable"]
-        os:
-          - target_platform: x86_64-unknown-linux-gnu
-            imageName: ubuntu-latest
-            cross: "true"
-          - target_platform: x86_64-unknown-linux-musl
-            imageName: ubuntu-latest
-            cross: "true"
-          - target_platform: aarch64-unknown-linux-musl
-            imageName: ubuntu-latest
-            cross: "true"
-          - target_platform: x86_64-apple-darwin
-            imageName: "macOS-latest"
-          - target_platform: aarch64-apple-darwin
-            imageName: "macOS-latest"
-          - target_platform: x86_64-pc-windows-msvc
-            imageName: windows-latest
-
+  create-release:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
+      - uses: taiki-e/create-gh-release-action@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
+          # (optional) Path to changelog.
+          changelog: CHANGELOG.md
+          # (required) GitHub token for creating GitHub Releases.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-assets:
+    strategy:
+      matrix:
+        include:
+          - target_platform: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target_platform: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          # Universal macOS binary is supported as universal-apple-darwin.
+          - target: universal-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          toolchain: ${{ matrix.rust_toolchain }}
-          target: ${{ matrix.os.target_platform }}
-          override: true
-          profile: minimal
-      - uses: davidB/rust-cargo-make@v1
-      - name: Make zip-release-ci-flow
-        id: zip-release-ci-flow
-        run: cargo make --disable-check-for-updates zip-release-ci-flow
-        env:
-          TARGET: ${{ matrix.os.target_platform }}
-          CROSS: ${{ matrix.os.cross }}
-          # DEVELOPER_DIR: "/Applications/Xcode_11.app/Contents/Developer"
-      - name: Upload binaries to release
-        # if: startsWith(github.ref, 'refs/tags/')
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ steps.zip-release-ci-flow.outputs.dist_file_path }}
-          # asset_name: ${{ steps.zip-release-ci-flow.outputs.dist_file_name }}
-          # tag: ${{ github.ref }}
-          tag: ${{ steps.zip-release-ci-flow.outputs.dist_version }}
-          prerelease: ${{ github.ref == format('refs/tags/{0}', steps.zip-release-ci-flow.outputs.dist_version) }}
-          overwrite: true
+          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
+          # Note that glob pattern is not supported yet.
+          bin: kubectl-view-allocations
+          features: cli
+          # (optional) Comma-separated list of additional files to be included to archive.
+          # Note that glob pattern is not supported yet.
+          include: LICENSE.txt
+          # (optional) Target triple, default is host triple.
+          target: ${{ matrix.target }}
+          # (required) GitHub token for uploading assets to GitHub Releases.
+          token: ${{ secrets.GITHUB_TOKEN }}
