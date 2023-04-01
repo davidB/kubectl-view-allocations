@@ -9,6 +9,9 @@ on:
     # tags-ignore:
     #   - "[0-9]+.[0-9]+.[0-9]+*"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ${{ matrix.os.imageName }}
@@ -54,7 +57,7 @@ jobs:
       - name: Run tests
         run: cargo make --disable-check-for-updates --profile "${{ matrix.os.profile_ci_flow }}" ci-flow
         env:
-          TARGET: ${{ matrix.os.target_platform }}
+          TARGET: ${{ matrix.os.target_paddlatform }}
           # for list of xcode sdk see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/software-installed-on-github-hosted-runners#xcode
           # DEVELOPER_DIR: "/Applications/Xcode_11.app/Contents/Developer"
           CARGO_MAKE_RUN_CODECOV: "false"
