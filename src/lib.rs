@@ -12,7 +12,7 @@ use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::{Api, ListParams, ObjectList};
 #[cfg(feature = "prettytable")]
-use prettytable::{cell, format, row, Cell, Row, Table};
+use prettytable::{format, row, Cell, Row, Table};
 use qty::Qty;
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -861,14 +861,11 @@ mod tests {
 
     #[test]
     fn test_accept_resource() {
-        assert_eq!(accept_resource("cpu", &vec![]), true);
-        assert_eq!(accept_resource("cpu", &vec!["c".to_string()]), true);
-        assert_eq!(accept_resource("cpu", &vec!["cpu".to_string()]), true);
-        assert_eq!(accept_resource("cpu", &vec!["cpu3".to_string()]), false);
-        assert_eq!(accept_resource("gpu", &vec!["gpu".to_string()]), true);
-        assert_eq!(
-            accept_resource("nvidia.com/gpu", &vec!["gpu".to_string()]),
-            true
-        );
+        assert!(accept_resource("cpu", &[]));
+        assert!(accept_resource("cpu", &["c".to_string()]));
+        assert!(accept_resource("cpu", &["cpu".to_string()]));
+        assert!(!accept_resource("cpu", &["cpu3".to_string()]));
+        assert!(accept_resource("gpu", &["gpu".to_string()]));
+        assert!(accept_resource("nvidia.com/gpu", &["gpu".to_string()]));
     }
 }
