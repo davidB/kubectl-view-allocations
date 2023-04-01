@@ -1,30 +1,36 @@
 use clap::Parser;
+use color_eyre::eyre::Result;
 use kubectl_view_allocations::{do_main, CliOpts, GroupBy};
-use tracing::error;
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::filter::EnvFilter;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::Registry;
 
 fn init_tracing() {
     // std::env::set_var("RUST_LOG", "info,kube=trace");
+    use tracing_error::ErrorLayer;
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::{fmt, EnvFilter};
 
     std::env::set_var(
         "RUST_LOG",
         std::env::var("RUST_LOG").unwrap_or_else(|_| "warn,kube_client=error".to_string()),
     );
-    let formatting_layer =
-        BunyanFormattingLayer::new(env!("CARGO_CRATE_NAME").to_owned(), std::io::stderr);
-    let subscriber = Registry::default()
-        .with(EnvFilter::from_default_env())
-        .with(JsonStorageLayer)
-        .with(formatting_layer);
-    tracing::subscriber::set_global_default(subscriber).unwrap();
+
+    let fmt_layer = fmt::layer().with_target(false);
+    let filter_layer = EnvFilter::try_from_default_env()
+        .or_else(|_| EnvFilter::try_new("info"))
+        .unwrap();
+
+    tracing_subscriber::registry()
+        .with(filter_layer)
+        .with(fmt_layer)
+        .with(ErrorLayer::default())
+        .init();
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     init_tracing();
+    color_eyre::config::HookBuilder::default()
+        .panic_section("consider reporting the bug on github")
+        .install()?;
     let mut cli_opts = CliOpts::parse();
     //HACK because I didn't find how to default a multiple opts
     if cli_opts.group_by.is_empty() {
@@ -38,8 +44,6 @@ async fn main() {
     cli_opts.group_by.dedup();
     // dbg!(&cli_opts);
 
-    let r = do_main(&cli_opts).await;
-    if let Err(e) = r {
-        error!("failed \ncli: {:?}\nerror: {:?}", &cli_opts, &e);
-    }
+    do_main(&cli_opts).await?;
+    Ok(())
 }
