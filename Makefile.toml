@@ -46,6 +46,7 @@ script = ['''
 
 [tasks.zip-release-ci-flow]
 description = "Compiles the binary in release mode and zips it up"
+windows_alias = "zip-release-ci-flow_windows"
 category = "CI"
 condition = { env_set = ["TARGET"] }
 dependencies = [
@@ -54,11 +55,29 @@ dependencies = [
   "build-release-for-target",
   "zip-release-binary-for-target",
 ]
-script_runner = "@duckscript"
+script_runner = "@shell"
 script = ['''
   echo "dist_file_path=${DIST_PATH}.${DIST_EXT}" >> $GITHUB_OUTPUT
   echo "dist_file_name=${DIST_NAME}.${DIST_EXT}" >> $GITHUB_OUTPUT
   echo "dist_version=${DIST_VERSION}" >> $GITHUB_OUTPUT
+  ''']
+
+[tasks.zip-release-ci-flow_windows]
+description = "Compiles the binary in release mode and zips it up"
+category = "CI"
+condition = { env_set = ["TARGET"] }
+dependencies = [
+  # "clean",
+  "dist_env",
+  "build-release-for-target",
+  "zip-release-binary-for-target",
+]
+script_runner = "powershell"
+script_extension = "ps1"
+script = ['''
+  echo "dist_file_path=${env:DIST_PATH}.${env:DIST_EXT}" >> $env:GITHUB_OUTPUT
+  echo "dist_file_name=${env:DIST_NAME}.${env:DIST_EXT}" >> $env:GITHUB_OUTPUT
+  echo "dist_version=${env:DIST_VERSION}" >> $env:GITHUB_OUTPUT
   ''']
 
 [tasks.setup-cross]
