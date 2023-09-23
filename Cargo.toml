@@ -21,12 +21,8 @@ kube = { version = "0.86.0", features = [
     "client",
     "oauth",
     "gzip",
-    # with 0.80.0, "rustls-tls" failed with `presented server name type wasn't supported`
-    # on local rancher-desktop (`rustls/dangerous_configuration` is enabled on kube-rs
-    # "rustls-tls",
-    "openssl-tls",
+    "rustls-tls",
 ], default-features = false }
-openssl = { version = "0.10", features = ["vendored"] }
 prettytable-rs = { version = "0.10", default-features = false, optional = true }
 serde = "1.0"
 serde_json = "1.0"
