@@ -1,0 +1,14 @@
+[env]
+CLUSTER_NAME = "demo-kube"
+DOCKER_BUILDKIT = "1"
+BP_RUST_TOOLCHAIN = "1.71"
+# KIND_EXPERIMENTAL_PROVIDER = "podman" # to use podman and podman-docker
+
+[tools]
+# docker (or podman + some config) should be available for some of thoses tools
+# helm = '3.12'
+kubectl = '1.24'
+# helmfile = '0.155'
+kind = '0.20'
+just = '1.14'
+rust = '1.72'
