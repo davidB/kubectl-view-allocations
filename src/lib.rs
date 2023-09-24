@@ -827,6 +827,8 @@ pub fn display_with_prettytable(
                 row.remove_cell(1);
             }
             table.add_row(row);
+        } else {
+            table.add_row(Row::new(vec![Cell::new(&column0)]));
         }
     }
 
