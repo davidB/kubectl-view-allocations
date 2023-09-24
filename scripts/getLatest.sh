@@ -26,15 +26,16 @@ fail() {
 
 find_download_url() {
   local SUFFIX=$1
-  local LATEST_URL="https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest"
-  local URL=$(curl -s "${LATEST_URL}" | grep "browser_download_url.*${SUFFIX}" | cut -d : -f 2,3 |
+  URL=$(curl -s https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/releases/latest |
+    grep "browser_download_url.*${SUFFIX}" |
+    cut -d : -f 2,3 |
     tr -d \" |
     head -n 1)
   echo "${URL//[[:space:]]/}"
 }
 
 find_arch() {
-  local ARCH=$(uname -m)
+  ARCH=$(uname -m)
   case $ARCH in
   armv5*) ARCH="armv5" ;;
   armv6*) ARCH="armv6" ;;
@@ -49,14 +50,15 @@ find_arch() {
 }
 
 find_os() {
-  local OS=$(echo $(uname) | tr '[:upper:]' '[:lower:]')
+  UNAME=$(uname)
+  OS=$(echo "$UNAME" | tr '[:upper:]' '[:lower:]')
 
   case "$OS" in
   # Minimalist GNU for Windows
   mingw*) OS='windows' ;;
   msys*) OS='windows' ;;
   esac
-  echo $OS
+  echo "$OS"
 }
 
 find_suffix() {
@@ -65,10 +67,12 @@ find_suffix() {
   local SUFFIX="$ARCH-$OS.tar.gz"
   case "$SUFFIX" in
   "x86_64-darwin.tar.gz") SUFFIX='x86_64-apple-darwin.tar.gz' ;;
-  "x86_64-linux.tar.gz") SUFFIX='x86_64-unknown-linux-gnu.tar.gz' ;;
+  "arm64-darwin.tar.gz") SUFFIX='aarch64-apple-darwin.tar.gz' ;;
+  "x86_64-linux.tar.gz") SUFFIX='x86_64-unknown-linux-musl.tar.gz' ;;
+  "arm64-linux.tar.gz") SUFFIX='aarch64-unknown-linux-musl.tar.gz' ;;
     # "x86_64-windows.tar.gz") SUFFIX='x86_64-pc-windows-msvc.zip';;
   esac
-  echo $SUFFIX
+  echo "$SUFFIX"
 }
 
 download_file() {
@@ -87,7 +91,7 @@ find_exec_dest_path() {
   if [ ! -w $DEST_DIR ]; then
     DEST_DIR=$(pwd)
   fi
-  echo ${DEST_DIR}
+  echo "${DEST_DIR}"
 }
 
 install_file() {
@@ -96,31 +100,38 @@ install_file() {
   TMP_DIR="/tmp/${GITHUB_USER}_${GITHUB_REPO}"
   mkdir -p "$TMP_DIR" || true
   tar xf "$FILE_PATH" -C "$TMP_DIR"
-  cp "$TMP_DIR/${EXE_FILENAME}" "${EXE_DEST_FILE}"
+  if [ -f "$TMP_DIR/${EXE_FILENAME}" ]; then
+    cp "$TMP_DIR/${EXE_FILENAME}" "${EXE_DEST_FILE}"
+  else
+    for dir in "$TMP_DIR"/*/; do
+      if [ -f "$dir${EXE_FILENAME}" ]; then
+        cp "$dir${EXE_FILENAME}" "${EXE_DEST_FILE}"
+        break
+      fi
+    done
+  fi
+
   chmod +x "${EXE_DEST_FILE}"
   rm -rf "$TMP_DIR"
 }
 
 main() {
-  local EXE_DEST_DIR=$(find_exec_dest_path)
-  local EXE_DEST_FILE="${EXE_DEST_DIR}/${EXE_FILENAME}"
-  local ARCH=$(find_arch)
-  local OS=$(find_os)
-  local SUFFIX=$(find_suffix $ARCH $OS)
-  local FILE_URL=$(find_download_url $SUFFIX)
+  EXE_DEST_DIR=$(find_exec_dest_path)
+  EXE_DEST_FILE="${EXE_DEST_DIR}/${EXE_FILENAME}"
+  ARCH=$(find_arch)
+  OS=$(find_os)
+  SUFFIX=$(find_suffix "$ARCH" "$OS")
+  FILE_URL=$(find_download_url "$SUFFIX")
+  FILE_PATH="/tmp/${GITHUB_USER}-${GITHUB_REPO}-latest-${SUFFIX}"
   if [ -z "${FILE_URL}" ]; then
-    fail "Did not find a latest release for your system: $OS $ARCH ($SUFFIX)"
+    fail "Did not find a release for your system: $OS $ARCH"
   fi
-  local FILE_PATH="/tmp/${GITHUB_USER}-${GITHUB_REPO}-latest-${SUFFIX}"
   download_file "${FILE_URL}" "${FILE_PATH}"
   install_file "${FILE_PATH}" "${EXE_DEST_FILE}"
-  rm -Rf ${FILE_PATH}
+  rm -Rf "${FILE_PATH}"
   echo "executable installed at ${EXE_DEST_FILE}"
   bye
 }
-
-#TODO check bash is used `readlink /proc/$$/exe`
-# because the script is not compatible with dash (default sh on ubuntu), other posix only shell,...
 
 #Stop execution on any error
 trap "bye" EXIT
