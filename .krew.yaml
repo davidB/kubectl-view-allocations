@@ -1,0 +1,44 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: view-allocations
+spec:
+  version: "v{{ .TagName }}"
+  platforms:
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: amd64
+      {{addURIAndSha "https://github.com/davidB/kubectl-view-allocations/releases/download/{{ .TagName }}/kubectl-view-allocations_{{ .TagName }}-x86_64-apple-darwin.tar.gz" .TagName | indent 6 }}
+      bin: "./kubectl-view-allocations"
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: arm64
+      {{addURIAndSha "https://github.com/davidB/kubectl-view-allocations/releases/download/{{ .TagName }}/kubectl-view-allocations_{{ .TagName }}-aarch64-apple-darwin.tar.gz" .TagName | indent 6}}
+      bin: "./kubectl-view-allocations"
+    - selector:
+        matchLabels:
+          os: linux
+          arch: amd64
+      {{addURIAndSha "https://github.com/davidB/kubectl-view-allocations/releases/download/{{ .TagName }}/kubectl-view-allocations_{{ .TagName }}-x86_64-unknown-linux-musl.tar.gz" .TagName | indent 6}}
+      bin: "./kubectl-view-allocations"
+    - selector:
+        matchLabels:
+          os: linux
+          arch: arm64
+      {{addURIAndSha "https://github.com/davidB/kubectl-view-allocations/releases/download/{{ .TagName }}/kubectl-view-allocations_{{ .TagName }}-aarch64-unknown-linux-musl.tar.gz" .TagName | indent 6}}
+      bin: "./kubectl-view-allocations"
+    - selector:
+        matchLabels:
+          os: windows
+          arch: amd64
+      {{addURIAndSha "https://github.com/davidB/kubectl-view-allocations/releases/download/{{ .TagName }}/kubectl-view-allocations_{{ .TagName }}-x86_64-pc-windows-msvc.zip" .TagName | indent 6}}
+      bin: "./kubectl-view-allocations.exe"
+  shortDescription: List allocations per resources, nodes, pods.
+  homepage: https://github.com/davidB/kubectl-view-allocations
+  description: |
+    This plugin lists resources (cpu, memory, gpu,...) allocations (requested,
+    limit, allocatable) as defined in the manifest of nodes and running pods,
+    and utilization from metrics-server.
+    try `kubectl view-allocations -h`, `kubectl view-allocations`
