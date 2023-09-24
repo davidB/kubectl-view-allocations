@@ -69,12 +69,13 @@ jobs:
           # asset_name: ${{ steps.zip-release-ci-flow.outputs.dist_file_name }}
           # tag: ${{ github.ref }}
           tag: ${{ steps.zip-release-ci-flow.outputs.dist_version }}
-          prerelease: ${{ github.ref == format('refs/tags/{0}', steps.zip-release-ci-flow.outputs.dist_version) }}
+          prerelease: false # ${{ github.ref == format('refs/tags/{0}', steps.zip-release-ci-flow.outputs.dist_version) }}
           overwrite: true
 
   krew-update:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Update new version in krew-index
         uses: rajatjindal/krew-release-bot@v0.0.46
