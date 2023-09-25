@@ -37,7 +37,7 @@ jobs:
           #   target_platform:
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
@@ -76,7 +76,7 @@ jobs:
           # Used to avoid rate limits when fetching the releases from k3s repo.
           # Anonymous access is limited to 60 requests / hour / worker
           # github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/cache@v3
         with:
           path: |
