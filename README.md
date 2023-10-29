@@ -62,7 +62,6 @@ default = ["k8s-openapi/v1_20"]
 
 ```sh
 > kubectl-view-allocations -h
-
 kubectl plugin to list allocations (cpu, memory, gpu,... X utilization, requested, limit, allocatable,...)
 
 Usage: kubectl-view-allocations [OPTIONS]
@@ -72,6 +71,8 @@ Options:
   -n, --namespace <NAMESPACE>          Show only pods from this namespace
   -u, --utilization                    Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
   -z, --show-zero                      Show lines with zero requested and zero limit and zero allocatable
+      --precheck                       pre-check access and refersh token on kubeconfig by running `kubectl cluster-info`
+      --accept-invalid-certs           accept invalid certificats (dangerous)
   -r, --resource-name <RESOURCE_NAME>  Filter resources shown by name(s), by default all resources are listed
   -g, --group-by <GROUP_BY>            Group information hierarchically (default: -g resource -g node -g pod) [possible values: resource, node, pod, namespace]
   -o, --output <OUTPUT>                Output format [default: table] [possible values: table, csv]

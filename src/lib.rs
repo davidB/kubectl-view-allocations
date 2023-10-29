@@ -582,6 +582,14 @@ pub struct CliOpts {
     #[arg(short = 'z', long, value_parser)]
     pub show_zero: bool,
 
+    /// pre-check access and refersh token on kubeconfig by running `kubectl cluster-info`
+    #[arg(long, value_parser)]
+    pub precheck: bool,
+
+    /// accept invalid certificats (dangerous)
+    #[arg(long, value_parser)]
+    pub accept_invalid_certs: bool,
+
     /// Filter resources shown by name(s), by default all resources are listed
     #[arg(short, long, value_parser)]
     pub resource_name: Vec<String>,
@@ -626,8 +634,10 @@ pub async fn refresh_kube_config(cli_opts: &CliOpts) -> Result<(), Error> {
 }
 
 pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
-    refresh_kube_config(cli_opts).await?;
-    let client_config = match cli_opts.context {
+    if cli_opts.precheck {
+        refresh_kube_config(cli_opts).await?;
+    }
+    let mut client_config = match cli_opts.context {
         Some(ref context) => kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
             context: Some(context.clone()),
             ..Default::default()
@@ -645,6 +655,7 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
             })?,
     };
     info!(cluster_url = client_config.cluster_url.to_string().as_str());
+    client_config.accept_invalid_certs = cli_opts.accept_invalid_certs;
     kube::Client::try_from(client_config).map_err(|source| Error::KubeError {
         context: "create the kube client".to_string(),
         source,
