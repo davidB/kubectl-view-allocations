@@ -254,20 +254,33 @@ impl<'b> std::ops::SubAssign<&'b Qty> for Qty {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use spectral::prelude::*;
+    use pretty_assertions::assert_eq;
+
+    macro_rules! assert_is_close {
+        ($x:expr, $y:expr, $range:expr) => {
+            assert!($x >= ($y - $range));
+            assert!($x <= ($y + $range));
+        };
+    }
 
     #[test]
     fn test_to_base() -> Result<(), Box<dyn std::error::Error>> {
-        assert_that!(f64::from(&Qty::from_str("1k")?))
-            .is_close_to(f64::from(&Qty::from_str("1000000m")?), 0.01);
-        assert_that!(Qty::from_str("1Ki")?).is_equal_to(Qty {
-            value: 1024000,
-            scale: Scale {
-                label: "Ki",
-                base: 2,
-                pow: 10,
-            },
-        });
+        assert_is_close!(
+            f64::from(&Qty::from_str("1k")?),
+            f64::from(&Qty::from_str("1000000m")?),
+            0.01
+        );
+        assert_eq!(
+            Qty::from_str("1Ki")?,
+            Qty {
+                value: 1024000,
+                scale: Scale {
+                    label: "Ki",
+                    base: 2,
+                    pow: 10,
+                },
+            }
+        );
         Ok(())
     }
 
@@ -292,8 +305,10 @@ mod tests {
             ("1m", "1.0m"),
         ];
         for (input, expected) in cases {
-            assert_that!(format!("{}", &Qty::from_str(input)?.adjust_scale()))
-                .is_equal_to(expected.to_string());
+            assert_eq!(
+                format!("{}", &Qty::from_str(input)?.adjust_scale()),
+                expected.to_string()
+            );
         }
         Ok(())
     }
@@ -324,57 +339,74 @@ mod tests {
             ("999999n", "0.0n"),
         ];
         for input in cases {
-            assert_that!(format!("{}", &Qty::from_str(input.0)?)).is_equal_to(input.1.to_string());
-            assert_that!(format!("{}", &Qty::from_str(input.1)?)).is_equal_to(input.1.to_string());
+            assert_eq!(format!("{}", &Qty::from_str(input.0)?), input.1.to_string());
+            assert_eq!(format!("{}", &Qty::from_str(input.1)?), input.1.to_string());
         }
         Ok(())
     }
 
     #[test]
     fn test_f64_from_scale() -> Result<(), Box<dyn std::error::Error>> {
-        assert_that!(f64::from(&Scale::from_str("m")?)).is_close_to(0.001, 0.00001);
+        assert_is_close!(f64::from(&Scale::from_str("m")?), 0.001, 0.00001);
         Ok(())
     }
 
     #[test]
     fn test_f64_from_qty() -> Result<(), Box<dyn std::error::Error>> {
-        assert_that!(f64::from(&Qty::from_str("20m")?)).is_close_to(0.020, 0.00001);
-        assert_that!(f64::from(&Qty::from_str("300m")?)).is_close_to(0.300, 0.00001);
-        assert_that!(f64::from(&Qty::from_str("1000m")?)).is_close_to(1.000, 0.00001);
-        assert_that!(f64::from(&Qty::from_str("+1000m")?)).is_close_to(1.000, 0.00001);
-        assert_that!(f64::from(&Qty::from_str("-1000m")?)).is_close_to(-1.000, 0.00001);
-        assert_that!(f64::from(&Qty::from_str("3145728e3")?)).is_close_to(3145728000.000, 0.00001);
+        assert_is_close!(f64::from(&Qty::from_str("20m")?), 0.020, 0.00001);
+        assert_is_close!(f64::from(&Qty::from_str("300m")?), 0.300, 0.00001);
+        assert_is_close!(f64::from(&Qty::from_str("1000m")?), 1.000, 0.00001);
+        assert_is_close!(f64::from(&Qty::from_str("+1000m")?), 1.000, 0.00001);
+        assert_is_close!(f64::from(&Qty::from_str("-1000m")?), -1.000, 0.00001);
+        assert_is_close!(
+            f64::from(&Qty::from_str("3145728e3")?),
+            3145728000.000,
+            0.00001
+        );
         Ok(())
     }
 
     #[test]
     fn test_add() -> Result<(), Box<dyn std::error::Error>> {
-        assert_that!(
-            &(Qty::from_str("1")?
+        assert_eq!(
+            (Qty::from_str("1")?
                 + Qty::from_str("300m")?
                 + Qty::from_str("300m")?
                 + Qty::from_str("300m")?
-                + Qty::from_str("300m")?)
-        )
-        .is_equal_to(&Qty::from_str("2200m")?);
-        assert_that!(&(Qty::default() + Qty::from_str("300m")?))
-            .is_equal_to(Qty::from_str("300m")?);
-        assert_that!(&(Qty::default() + Qty::from_str("16Gi")?))
-            .is_equal_to(Qty::from_str("16Gi")?);
-        assert_that!(&(Qty::from_str("20m")? + Qty::from_str("300m")?))
-            .is_equal_to(Qty::from_str("320m")?);
-        assert_that!(&(Qty::from_str("1k")? + Qty::from_str("300m")?))
-            .is_equal_to(&Qty::from_str("1000300m")?);
-        assert_that!(&(Qty::from_str("1Ki")? + Qty::from_str("1Ki")?))
-            .is_equal_to(&Qty::from_str("2Ki")?);
-        assert_that!(&(Qty::from_str("1Ki")? + Qty::from_str("1k")?)).is_equal_to(&Qty {
-            value: 2024000,
-            scale: Scale {
-                label: "k",
-                base: 10,
-                pow: 3,
-            },
-        });
+                + Qty::from_str("300m")?),
+            Qty::from_str("2200m")?
+        );
+        assert_eq!(
+            Qty::default() + Qty::from_str("300m")?,
+            Qty::from_str("300m")?
+        );
+        assert_eq!(
+            Qty::default() + Qty::from_str("16Gi")?,
+            Qty::from_str("16Gi")?
+        );
+        assert_eq!(
+            Qty::from_str("20m")? + Qty::from_str("300m")?,
+            Qty::from_str("320m")?
+        );
+        assert_eq!(
+            &(Qty::from_str("1k")? + Qty::from_str("300m")?),
+            &Qty::from_str("1000300m")?
+        );
+        assert_eq!(
+            &(Qty::from_str("1Ki")? + Qty::from_str("1Ki")?),
+            &Qty::from_str("2Ki")?
+        );
+        assert_eq!(
+            &(Qty::from_str("1Ki")? + Qty::from_str("1k")?),
+            &Qty {
+                value: 2024000,
+                scale: Scale {
+                    label: "k",
+                    base: 10,
+                    pow: 3,
+                },
+            }
+        );
         Ok(())
     }
 }

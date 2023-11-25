@@ -54,8 +54,8 @@ doc = false
 required-features = ["cli"]
 
 [dev-dependencies]
-anyhow = "1.0"
-spectral = "0.6.0"
+anyhow = "1"
+pretty_assertions = "1"
 
 [profile.release]
 lto = true
