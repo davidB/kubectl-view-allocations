@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -77,7 +77,7 @@ jobs:
           # Anonymous access is limited to 60 requests / hour / worker
           # github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
