@@ -196,10 +196,15 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
 pub async fn collect_from_nodes(
     client: kube::Client,
     resources: &mut Vec<Resource>,
+    selector: &Option<String>,
 ) -> Result<(), Error> {
     let api_nodes: Api<Node> = Api::all(client);
+    let mut lp = ListParams::default();
+    if let Some(label) = &selector {
+        lp = lp.labels(label);
+    }
     let nodes = api_nodes
-        .list(&ListParams::default())
+        .list(&lp)
         .await
         .map_err(|source| Error::KubeError {
             context: "list nodes".to_string(),
@@ -574,6 +579,10 @@ pub struct CliOpts {
     #[arg(short, long, value_parser)]
     pub namespace: Option<String>,
 
+    /// Show only resource match this label selector
+    #[arg(short = 'l', long, value_parser)]
+    pub selector: Option<String>,
+
     /// Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
     #[arg(short = 'u', long, value_parser)]
     pub utilization: bool,
@@ -666,7 +675,7 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
 pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
     let client = new_client(cli_opts).await?;
     let mut resources: Vec<Resource> = vec![];
-    collect_from_nodes(client.clone(), &mut resources).await?;
+    collect_from_nodes(client.clone(), &mut resources, &cli_opts.selector).await?;
     collect_from_pods(client.clone(), &mut resources, &cli_opts.namespace).await?;
 
     let show_utilization = if cli_opts.utilization {
