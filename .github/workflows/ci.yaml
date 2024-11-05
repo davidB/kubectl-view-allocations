@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+env:
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+
 jobs:
   build:
     runs-on: ${{ matrix.os.imageName }}
@@ -47,12 +51,11 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust_toolchain }}
-          target: ${{ matrix.os.target_platform }}
-          override: true
-          profile: ${{ matrix.os.profile_rustup }}
+          targets: ${{ matrix.os.target_platform }}
+      - uses: mozilla-actions/sccache-action@v0.0.6
       - uses: davidB/rust-cargo-make@v1
       - name: Run tests
         run: cargo make --disable-check-for-updates --profile "${{ matrix.os.profile_ci_flow }}" ci-flow
@@ -63,6 +66,8 @@ jobs:
           CARGO_MAKE_RUN_CODECOV: "false"
           # to have CODECOV_TOKEN go to https://codecov.io/gh/${GITHUB_USER}/${GITHUB_REPO}
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - run: ${SCCACHE_PATH} --show-stats
+        shell: bash
 
   integration:
     # Integration tests are linux only
@@ -77,14 +82,9 @@ jobs:
           # Anonymous access is limited to 60 requests / hour / worker
           # github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: mozilla-actions/sccache-action@v0.0.6
       - name: Run on k3d
         run: cargo run
+      - run: ${SCCACHE_PATH} --show-stats
+        shell: bash

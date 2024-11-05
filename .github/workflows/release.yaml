@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+env:
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+
 jobs:
   build:
     runs-on: ${{ matrix.os.imageName }}
@@ -37,21 +41,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust_toolchain }}
-          target: ${{ matrix.os.target_platform }}
-          override: true
-          profile: minimal
+          targets: ${{ matrix.os.target_platform }}
+      - uses: mozilla-actions/sccache-action@v0.0.6
       - uses: davidB/rust-cargo-make@v1
       - name: Make zip-release-ci-flow
         id: zip-release-ci-flow
@@ -71,6 +65,8 @@ jobs:
           tag: ${{ steps.zip-release-ci-flow.outputs.dist_version }}
           prerelease: false # ${{ github.ref == format('refs/tags/{0}', steps.zip-release-ci-flow.outputs.dist_version) }}
           overwrite: true
+      - run: ${SCCACHE_PATH} --show-stats
+        shell: bash
 
   krew-update:
     needs: [build]
