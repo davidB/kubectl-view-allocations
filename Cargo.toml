@@ -27,7 +27,7 @@ kube = { version = "0.96", features = [
 prettytable-rs = { version = "0.10", default-features = false, optional = true }
 serde = "1.0"
 serde_json = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 tokio = { version = "1", features = ["full"], optional = true }
 tracing = "0.1"
 tracing-bunyan-formatter = { version = "0.3", optional = true }
