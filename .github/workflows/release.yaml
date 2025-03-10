@@ -45,7 +45,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust_toolchain }}
           targets: ${{ matrix.os.target_platform }}
-      - uses: mozilla-actions/sccache-action@v0.0.7
+      - uses: mozilla-actions/sccache-action@v0.0.8
       - uses: davidB/rust-cargo-make@v1
       - name: Make zip-release-ci-flow
         id: zip-release-ci-flow
