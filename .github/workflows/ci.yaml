@@ -55,7 +55,7 @@ jobs:
         with:
           toolchain: ${{ matrix.rust_toolchain }}
           targets: ${{ matrix.os.target_platform }}
-      - uses: mozilla-actions/sccache-action@v0.0.8
+      - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: davidB/rust-cargo-make@v1
       - name: Run tests
         run: cargo make --disable-check-for-updates --profile "${{ matrix.os.profile_ci_flow }}" ci-flow
@@ -83,7 +83,7 @@ jobs:
           # github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: mozilla-actions/sccache-action@v0.0.8
+      - uses: mozilla-actions/sccache-action@v0.0.9
       - name: Run on k3d
         run: cargo run
       - run: ${SCCACHE_PATH} --show-stats
