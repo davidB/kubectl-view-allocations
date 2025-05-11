@@ -759,7 +759,7 @@ fn add_cells_for_cvs(row: &mut Vec<String>, oqty: &Option<Qty>, o100: &Option<Qt
             row.push("".to_string());
             row.push("".to_string());
         }
-        Some(ref qty) => {
+        Some(qty) => {
             row.push(format!("{:.2}", f64::from(qty)));
             row.push(match o100 {
                 None => "".to_string(),
@@ -868,7 +868,7 @@ fn is_empty(oqty: &Option<Qty>) -> bool {
 fn make_cell_for_prettytable(oqty: &Option<Qty>, o100: &Option<Qty>) -> Cell {
     let txt = match oqty {
         None => "__".to_string(),
-        Some(ref qty) => match o100 {
+        Some(qty) => match o100 {
             None => format!("{}", qty.adjust_scale()),
             Some(q100) => format!("({:.0}%) {}", qty.calc_percentage(q100), qty.adjust_scale()),
         },

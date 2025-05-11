@@ -7,7 +7,7 @@ use kube::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    std::env::set_var("RUST_LOG", "info,kube=debug");
+    //std::env::set_var("RUST_LOG", "info,kube=debug");
     tracing_subscriber::fmt::init();
     let client = Client::try_default().await?;
     let pods: Api<Pod> = Api::all(client);

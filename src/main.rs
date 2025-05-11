@@ -3,19 +3,13 @@ use color_eyre::eyre::Result;
 use kubectl_view_allocations::{do_main, CliOpts, GroupBy};
 
 fn init_tracing() {
-    // std::env::set_var("RUST_LOG", "info,kube=trace");
     use tracing_error::ErrorLayer;
     use tracing_subscriber::prelude::*;
     use tracing_subscriber::{fmt, EnvFilter};
 
-    std::env::set_var(
-        "RUST_LOG",
-        std::env::var("RUST_LOG").unwrap_or_else(|_| "warn,kube_client=error".to_string()),
-    );
-
     let fmt_layer = fmt::layer().with_target(false);
     let filter_layer = EnvFilter::try_from_default_env()
-        .or_else(|_| EnvFilter::try_new("info"))
+        .or_else(|_| EnvFilter::try_new("warn"))
         .unwrap();
 
     tracing_subscriber::registry()
