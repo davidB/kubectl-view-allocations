@@ -69,10 +69,12 @@ Usage: kubectl-view-allocations [OPTIONS]
 Options:
       --context <CONTEXT>              The name of the kubeconfig context to use
   -n, --namespace <NAMESPACE>          Show only pods from this namespace
+  -l, --selector <SELECTOR>            Show only resource match this label selector
   -u, --utilization                    Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
   -z, --show-zero                      Show lines with zero requested and zero limit and zero allocatable
-      --precheck                       pre-check access and refersh token on kubeconfig by running `kubectl cluster-info`
-      --accept-invalid-certs           accept invalid certificats (dangerous)
+      --used-mode <USED_MODE>          The way to compute the `used` part for free (`allocatable - used`) [default: max-request-limit] [possible values: max-request-limit, only-request]
+      --precheck                       Pre-check access and refersh token on kubeconfig by running `kubectl cluster-info`
+      --accept-invalid-certs           Accept invalid certificats (dangerous)
   -r, --resource-name <RESOURCE_NAME>  Filter resources shown by name(s), by default all resources are listed
   -g, --group-by <GROUP_BY>            Group information hierarchically (default: -g resource -g node -g pod) [possible values: resource, node, pod, namespace]
   -o, --output <OUTPUT>                Output format [default: table] [possible values: table, csv]
@@ -125,24 +127,24 @@ https://github.com/davidB/kubectl-view-allocations
 ```sh
 > kubectl-view-allocations -u
 
- Resource                                        Utilization     Requested         Limit  Allocatable   Free 
-  cpu                                              (0%) 9.0m  (10%) 200.0m            __          2.0    1.8 
-  └─ lima-rancher-desktop                          (0%) 9.0m  (10%) 200.0m            __          2.0    1.8 
-     ├─ coredns-96cc4f57d-57cj9                         1.0m        100.0m            __           __     __ 
-     ├─ local-path-provisioner-84bb864455-czzcg         1.0m            __            __           __     __ 
-     ├─ metrics-server-ff9dbcb6c-kb7x9                  4.0m        100.0m            __           __     __ 
-     ├─ svclb-traefik-ggd2q                             2.0m            __            __           __     __ 
-     └─ traefik-55fdc6d984-sqp57                        1.0m            __            __           __     __ 
-  ephemeral-storage                                       __            __            __        99.8G     __ 
-  └─ lima-rancher-desktop                                 __            __            __        99.8G     __ 
-  memory                                         (1%) 51.0Mi  (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi 
-  └─ lima-rancher-desktop                        (1%) 51.0Mi  (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi 
-     ├─ coredns-96cc4f57d-57cj9                       11.5Mi        70.0Mi       170.0Mi           __     __ 
-     ├─ local-path-provisioner-84bb864455-czzcg        6.2Mi            __            __           __     __ 
-     ├─ metrics-server-ff9dbcb6c-kb7x9                14.9Mi        70.0Mi            __           __     __ 
-     ├─ svclb-traefik-ggd2q                          548.0Ki            __            __           __     __ 
-     └─ traefik-55fdc6d984-sqp57                      17.9Mi            __            __           __     __ 
-  pods                                                    __      (5%) 5.0      (5%) 5.0        110.0  105.0 
+ Resource                                        Utilization     Requested         Limit  Allocatable   Free
+  cpu                                              (0%) 9.0m  (10%) 200.0m            __          2.0    1.8
+  └─ lima-rancher-desktop                          (0%) 9.0m  (10%) 200.0m            __          2.0    1.8
+     ├─ coredns-96cc4f57d-57cj9                         1.0m        100.0m            __           __     __
+     ├─ local-path-provisioner-84bb864455-czzcg         1.0m            __            __           __     __
+     ├─ metrics-server-ff9dbcb6c-kb7x9                  4.0m        100.0m            __           __     __
+     ├─ svclb-traefik-ggd2q                             2.0m            __            __           __     __
+     └─ traefik-55fdc6d984-sqp57                        1.0m            __            __           __     __
+  ephemeral-storage                                       __            __            __        99.8G     __
+  └─ lima-rancher-desktop                                 __            __            __        99.8G     __
+  memory                                         (1%) 51.0Mi  (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi
+  └─ lima-rancher-desktop                        (1%) 51.0Mi  (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi
+     ├─ coredns-96cc4f57d-57cj9                       11.5Mi        70.0Mi       170.0Mi           __     __
+     ├─ local-path-provisioner-84bb864455-czzcg        6.2Mi            __            __           __     __
+     ├─ metrics-server-ff9dbcb6c-kb7x9                14.9Mi        70.0Mi            __           __     __
+     ├─ svclb-traefik-ggd2q                          548.0Ki            __            __           __     __
+     └─ traefik-55fdc6d984-sqp57                      17.9Mi            __            __           __     __
+  pods                                                    __      (5%) 5.0      (5%) 5.0        110.0  105.0
   └─ lima-rancher-desktop                                 __      (5%) 5.0      (5%) 5.0        110.0  105.0
 ```
 
@@ -151,14 +153,14 @@ https://github.com/davidB/kubectl-view-allocations
 ```sh
 > kubectl-view-allocations -g namespace
 
- Resource               Requested         Limit  Allocatable   Free 
-  cpu                (10%) 200.0m            __          2.0    1.8 
-  └─ kube-system           200.0m            __           __     __ 
-  ephemeral-storage            __            __        99.8G     __ 
-  memory             (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi 
-  └─ kube-system          140.0Mi       170.0Mi           __     __ 
-  pods                   (5%) 5.0      (5%) 5.0        110.0  105.0 
-  └─ kube-system              5.0           5.0           __     __ 
+ Resource               Requested         Limit  Allocatable   Free
+  cpu                (10%) 200.0m            __          2.0    1.8
+  └─ kube-system           200.0m            __           __     __
+  ephemeral-storage            __            __        99.8G     __
+  memory             (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi
+  └─ kube-system          140.0Mi       170.0Mi           __     __
+  pods                   (5%) 5.0      (5%) 5.0        110.0  105.0
+  └─ kube-system              5.0           5.0           __     __
 ```
 
 ### Show as csv

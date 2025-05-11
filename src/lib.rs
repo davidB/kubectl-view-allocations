@@ -95,8 +95,11 @@ fn add(lhs: Option<Qty>, rhs: &Qty) -> Option<Qty> {
 }
 
 impl QtyByQualifier {
-    pub fn calc_free(&self) -> Option<Qty> {
-        let total_used = std::cmp::max(self.limit.as_ref(), self.requested.as_ref());
+    pub fn calc_free(&self, used_mode: UsedMode) -> Option<Qty> {
+        let total_used = match used_mode {
+            UsedMode::max_request_limit => std::cmp::max(self.limit.as_ref(), self.requested.as_ref()),
+            UsedMode::only_request => self.requested.as_ref(),
+        };
         self.allocatable
             .as_ref()
             .zip(total_used)
@@ -557,11 +560,20 @@ impl std::fmt::Display for GroupBy {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, ValueEnum, Clone)]
+#[derive(Debug, Eq, PartialEq, ValueEnum, Clone, Copy, Default)]
 #[allow(non_camel_case_types)]
 pub enum Output {
+    #[default]
     table,
     csv,
+}
+
+#[derive(Debug, Eq, PartialEq, ValueEnum, Clone, Copy, Default)]
+#[allow(non_camel_case_types)]
+pub enum UsedMode {
+    #[default]
+    max_request_limit,
+    only_request,
 }
 
 #[derive(Parser, Debug)]
@@ -591,11 +603,21 @@ pub struct CliOpts {
     #[arg(short = 'z', long, value_parser)]
     pub show_zero: bool,
 
-    /// pre-check access and refersh token on kubeconfig by running `kubectl cluster-info`
+    /// The way to compute the `used` part for free (`allocatable - used`)
+    #[arg(
+        long,
+        value_enum,
+        ignore_case = true,
+        default_value = "max-request-limit",
+        value_parser
+    )]
+    pub used_mode: UsedMode,
+
+    /// Pre-check access and refersh token on kubeconfig by running `kubectl cluster-info`
     #[arg(long, value_parser)]
     pub precheck: bool,
 
-    /// accept invalid certificats (dangerous)
+    /// Accept invalid certificats (dangerous)
     #[arg(long, value_parser)]
     pub accept_invalid_certs: bool,
 
@@ -692,8 +714,8 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
 
     let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name);
     match &cli_opts.output {
-        Output::table => display_with_prettytable(&res, !&cli_opts.show_zero, show_utilization),
-        Output::csv => display_as_csv(&res, &cli_opts.group_by, show_utilization),
+        Output::table => display_with_prettytable(&res, !&cli_opts.show_zero, show_utilization, cli_opts.used_mode),
+        Output::csv => display_as_csv(&res, &cli_opts.group_by, show_utilization, cli_opts.used_mode),
     }
     Ok(())
 }
@@ -702,6 +724,7 @@ pub fn display_as_csv(
     data: &[(Vec<String>, Option<QtyByQualifier>)],
     group_by: &[GroupBy],
     show_utilization: bool,
+    used_mode: UsedMode,
 ) {
     // print header
     println!(
@@ -743,7 +766,7 @@ pub fn display_as_csv(
                     .unwrap_or_else(|| empty.clone()),
             );
             row.push(
-                qtys.calc_free()
+                qtys.calc_free(used_mode)
                     .as_ref()
                     .map(|qty| format!("{:.2}", f64::from(qty)))
                     .unwrap_or_else(|| empty.clone()),
@@ -774,6 +797,7 @@ pub fn display_with_prettytable(
     _data: &[(Vec<String>, Option<QtyByQualifier>)],
     _filter_full_zero: bool,
     _show_utilization: bool,
+    _used_mode: UsedMode,
 ) {
     warn!("feature 'prettytable' not enabled");
 }
@@ -783,6 +807,7 @@ pub fn display_with_prettytable(
     data: &[(Vec<String>, Option<QtyByQualifier>)],
     filter_full_zero: bool,
     show_utilization: bool,
+    used_mode: UsedMode,
 ) {
     // Create the table
     let mut table = Table::new();
@@ -841,7 +866,7 @@ pub fn display_with_prettytable(
                 make_cell_for_prettytable(&qtys.requested, &qtys.allocatable).style_spec(style),
                 make_cell_for_prettytable(&qtys.limit, &qtys.allocatable).style_spec(style),
                 make_cell_for_prettytable(&qtys.allocatable, &None).style_spec(style),
-                make_cell_for_prettytable(&qtys.calc_free(), &None).style_spec(style),
+                make_cell_for_prettytable(&qtys.calc_free(used_mode), &None).style_spec(style),
             ]);
             if !show_utilization {
                 row.remove_cell(1);
