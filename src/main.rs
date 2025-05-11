@@ -1,11 +1,11 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
-use kubectl_view_allocations::{do_main, CliOpts, GroupBy};
+use kubectl_view_allocations::{CliOpts, GroupBy, do_main};
 
 fn init_tracing() {
     use tracing_error::ErrorLayer;
     use tracing_subscriber::prelude::*;
-    use tracing_subscriber::{fmt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt};
 
     let fmt_layer = fmt::layer().with_target(false);
     let filter_layer = EnvFilter::try_from_default_env()

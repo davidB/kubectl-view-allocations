@@ -10,7 +10,7 @@ use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::{Api, ListParams, ObjectList};
 #[cfg(feature = "prettytable")]
-use prettytable::{format, row, Cell, Row, Table};
+use prettytable::{Cell, Row, Table, format, row};
 use qty::Qty;
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -61,7 +61,7 @@ pub enum Error {
 
 #[derive(Debug, Clone, Default)]
 pub struct Location {
-    pub node_name: Option<String>,
+    pub node_name: String,
     pub namespace: Option<String>,
     pub pod_name: Option<String>,
 }
@@ -97,7 +97,9 @@ fn add(lhs: Option<Qty>, rhs: &Qty) -> Option<Qty> {
 impl QtyByQualifier {
     pub fn calc_free(&self, used_mode: UsedMode) -> Option<Qty> {
         let total_used = match used_mode {
-            UsedMode::max_request_limit => std::cmp::max(self.limit.as_ref(), self.requested.as_ref()),
+            UsedMode::max_request_limit => {
+                std::cmp::max(self.limit.as_ref(), self.requested.as_ref())
+            }
             UsedMode::only_request => self.requested.as_ref(),
         };
         self.allocatable
@@ -200,11 +202,11 @@ pub async fn collect_from_nodes(
     client: kube::Client,
     resources: &mut Vec<Resource>,
     selector: &Option<String>,
-) -> Result<(), Error> {
+) -> Result<Vec<String>, Error> {
     let api_nodes: Api<Node> = Api::all(client);
     let mut lp = ListParams::default();
-    if let Some(label) = &selector {
-        lp = lp.labels(label);
+    if let Some(labels) = &selector {
+        lp = lp.labels(labels);
     }
     let nodes = api_nodes
         .list(&lp)
@@ -212,19 +214,24 @@ pub async fn collect_from_nodes(
         .map_err(|source| Error::KubeError {
             context: "list nodes".to_string(),
             source,
-        })?;
+        })?
+        .items;
+    let node_names = nodes
+        .iter()
+        .filter_map(|node| node.metadata.name.clone())
+        .collect();
     extract_allocatable_from_nodes(nodes, resources).await?;
-    Ok(())
+    Ok(node_names)
 }
 
 #[instrument(skip(node_list, resources))]
 pub async fn extract_allocatable_from_nodes(
-    node_list: ObjectList<Node>,
+    node_list: Vec<Node>,
     resources: &mut Vec<Resource>,
 ) -> Result<(), Error> {
-    for node in node_list.items {
+    for node in node_list {
         let location = Location {
-            node_name: node.metadata.name,
+            node_name: node.metadata.name.unwrap_or_default(),
             ..Location::default()
         };
         if let Some(als) = node.status.and_then(|v| v.allocatable) {
@@ -331,6 +338,7 @@ pub async fn collect_from_pods(
     client: kube::Client,
     resources: &mut Vec<Resource>,
     namespace: &Option<String>,
+    selected_node_names: &[String],
 ) -> Result<(), Error> {
     let api_pods: Api<Pod> = if let Some(ns) = namespace {
         Api::namespaced(client, ns)
@@ -343,19 +351,24 @@ pub async fn collect_from_pods(
         .map_err(|source| Error::KubeError {
             context: "list pods".to_string(),
             source,
-        })?;
-    extract_allocatable_from_pods(pods, resources).await?;
+        })?
+        .items;
+    extract_allocatable_from_pods(pods, resources, selected_node_names).await?;
     Ok(())
 }
 
 #[instrument(skip(pod_list, resources))]
 pub async fn extract_allocatable_from_pods(
-    pod_list: ObjectList<Pod>,
+    pod_list: Vec<Pod>,
     resources: &mut Vec<Resource>,
+    selected_node_names: &[String],
 ) -> Result<(), Error> {
-    for pod in pod_list.items.into_iter().filter(is_scheduled) {
+    for pod in pod_list.into_iter().filter(is_scheduled) {
         let spec = pod.spec.as_ref();
-        let node_name = spec.and_then(|s| s.node_name.clone());
+        let node_name = spec.and_then(|s| s.node_name.clone()).unwrap_or_default();
+        if !selected_node_names.contains(&node_name) {
+            continue;
+        }
         let metadata = &pod.metadata;
         let location = Location {
             node_name: node_name.clone(),
@@ -532,7 +545,7 @@ impl GroupBy {
     }
 
     fn extract_node_name(e: &Resource) -> Option<String> {
-        e.location.node_name.clone()
+        Some(e.location.node_name.to_string()).filter(|s| !s.is_empty())
     }
 
     fn extract_pod_name(e: &Resource) -> Option<String> {
@@ -591,7 +604,7 @@ pub struct CliOpts {
     #[arg(short, long, value_parser)]
     pub namespace: Option<String>,
 
-    /// Show only resource match this label selector
+    /// Show only nodes match this label selector
     #[arg(short = 'l', long, value_parser)]
     pub selector: Option<String>,
 
@@ -697,8 +710,14 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
 pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
     let client = new_client(cli_opts).await?;
     let mut resources: Vec<Resource> = vec![];
-    collect_from_nodes(client.clone(), &mut resources, &cli_opts.selector).await?;
-    collect_from_pods(client.clone(), &mut resources, &cli_opts.namespace).await?;
+    let node_names = collect_from_nodes(client.clone(), &mut resources, &cli_opts.selector).await?;
+    collect_from_pods(
+        client.clone(),
+        &mut resources,
+        &cli_opts.namespace,
+        &node_names,
+    )
+    .await?;
 
     let show_utilization = if cli_opts.utilization {
         match collect_from_metrics(client.clone(), &mut resources).await {
@@ -714,8 +733,18 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
 
     let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name);
     match &cli_opts.output {
-        Output::table => display_with_prettytable(&res, !&cli_opts.show_zero, show_utilization, cli_opts.used_mode),
-        Output::csv => display_as_csv(&res, &cli_opts.group_by, show_utilization, cli_opts.used_mode),
+        Output::table => display_with_prettytable(
+            &res,
+            !&cli_opts.show_zero,
+            show_utilization,
+            cli_opts.used_mode,
+        ),
+        Output::csv => display_as_csv(
+            &res,
+            &cli_opts.group_by,
+            show_utilization,
+            cli_opts.used_mode,
+        ),
     }
     Ok(())
 }
