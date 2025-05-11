@@ -62,24 +62,37 @@ default = ["k8s-openapi/v1_20"]
 
 ```sh
 > kubectl-view-allocations -h
-kubectl plugin to list allocations (cpu, memory, gpu,... X utilization, requested, limit, allocatable,...)
+kubectl plugin to list allocations (cpu, memory, gpu,...) X (utilization, requested, limit, allocatable,...)
 
 Usage: kubectl-view-allocations [OPTIONS]
 
 Options:
-      --context <CONTEXT>              The name of the kubeconfig context to use
-  -n, --namespace <NAMESPACE>          Show only pods from this namespace
-  -l, --selector <SELECTOR>            Show only resource match this label selector
-  -u, --utilization                    Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
-  -z, --show-zero                      Show lines with zero requested and zero limit and zero allocatable
-      --used-mode <USED_MODE>          The way to compute the `used` part for free (`allocatable - used`) [default: max-request-limit] [possible values: max-request-limit, only-request]
-      --precheck                       Pre-check access and refersh token on kubeconfig by running `kubectl cluster-info`
-      --accept-invalid-certs           Accept invalid certificats (dangerous)
-  -r, --resource-name <RESOURCE_NAME>  Filter resources shown by name(s), by default all resources are listed
-  -g, --group-by <GROUP_BY>            Group information hierarchically (default: -g resource -g node -g pod) [possible values: resource, node, pod, namespace]
-  -o, --output <OUTPUT>                Output format [default: table] [possible values: table, csv]
-  -h, --help                           Print help
-  -V, --version                        Print version
+      --context <CONTEXT>
+          The name of the kubeconfig context to use
+  -n, --namespace <NAMESPACE>
+          Show only pods from this namespace
+  -l, --selector <SELECTOR>
+          Show only nodes match this label selector
+  -u, --utilization
+          Force to retrieve utilization (for cpu and memory), requires having metrics-server https://github.com/kubernetes-sigs/metrics-server
+  -z, --show-zero
+          Show lines with zero requested, zero limit, zero allocatable
+      --used-mode <USED_MODE>
+          The way to compute the `used` part for free (`allocatable - used`) [default: max-request-limit] [possible values: max-request-limit, only-request]
+      --precheck
+          Pre-check access and refresh token on kubeconfig by running `kubectl cluster-info`
+      --accept-invalid-certs
+          Accept invalid certificates (dangerous)
+  -r, --resource-name <RESOURCE_NAME>...
+          Filter resources shown by name(s), by default all resources are listed
+  -g, --group-by <GROUP_BY>...
+          Group information hierarchically (default: `-g resource -g node -g pod`) [possible values: resource, node, pod, namespace]
+  -o, --output <OUTPUT>
+          Output format [default: table] [possible values: table, csv]
+  -h, --help
+          Print help
+  -V, --version
+          Print version
 
 https://github.com/davidB/kubectl-view-allocations
 ```

@@ -608,11 +608,12 @@ pub struct CliOpts {
     #[arg(short = 'l', long, value_parser)]
     pub selector: Option<String>,
 
-    /// Force to retrieve utilization (for cpu and memory), require to have metrics-server https://github.com/kubernetes-sigs/metrics-server
+    /// Force to retrieve utilization (for cpu and memory), requires
+    /// having metrics-server https://github.com/kubernetes-sigs/metrics-server
     #[arg(short = 'u', long, value_parser)]
     pub utilization: bool,
 
-    /// Show lines with zero requested and zero limit and zero allocatable
+    /// Show lines with zero requested, zero limit, zero allocatable
     #[arg(short = 'z', long, value_parser)]
     pub show_zero: bool,
 
@@ -626,20 +627,20 @@ pub struct CliOpts {
     )]
     pub used_mode: UsedMode,
 
-    /// Pre-check access and refersh token on kubeconfig by running `kubectl cluster-info`
+    /// Pre-check access and refresh token on kubeconfig by running `kubectl cluster-info`
     #[arg(long, value_parser)]
     pub precheck: bool,
 
-    /// Accept invalid certificats (dangerous)
+    /// Accept invalid certificates (dangerous)
     #[arg(long, value_parser)]
     pub accept_invalid_certs: bool,
 
     /// Filter resources shown by name(s), by default all resources are listed
-    #[arg(short, long, value_parser)]
+    #[arg(short, long, value_parser, value_delimiter= ',', num_args = 1..)]
     pub resource_name: Vec<String>,
 
-    /// Group information hierarchically (default: -g resource -g node -g pod)
-    #[arg(short, long, value_enum, ignore_case = true, value_parser)]
+    /// Group information hierarchically (default: `-g resource -g node -g pod`)
+    #[arg(short, long, value_enum, ignore_case = true, value_parser, value_delimiter= ',', num_args = 1..)]
     pub group_by: Vec<GroupBy>,
 
     /// Output format
