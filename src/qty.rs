@@ -106,8 +106,15 @@ impl From<&Qty> for f64 {
 }
 
 impl Qty {
-    pub fn lowest_positive() -> Qty {
-        Qty {
+    pub fn zero() -> Self {
+        Self {
+            value: 0,
+            scale: Scale::from_str("").unwrap(),
+        }
+    }
+
+    pub fn lowest_positive() -> Self {
+        Self {
             value: 1,
             scale: Scale::from_str("m").unwrap(),
         }
@@ -125,14 +132,14 @@ impl Qty {
         }
     }
 
-    pub fn adjust_scale(&self) -> Qty {
+    pub fn adjust_scale(&self) -> Self {
         let valuef64 = f64::from(self);
         let scale = SCALES
             .iter()
             .filter(|s| s.base == self.scale.base || self.scale.base == 0)
             .find(|s| f64::from(*s) <= valuef64);
         match scale {
-            Some(scale) => Qty {
+            Some(scale) => Self {
                 value: self.value,
                 scale: scale.clone(),
             },

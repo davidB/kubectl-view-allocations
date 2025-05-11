@@ -80,6 +80,8 @@ pub enum ResourceQualifier {
     Requested,
     Allocatable,
     Utilization,
+    // HACK special qualifier, used to show zero/undef cpu & memory
+    Present,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -88,6 +90,7 @@ pub struct QtyByQualifier {
     pub requested: Option<Qty>,
     pub allocatable: Option<Qty>,
     pub utilization: Option<Qty>,
+    pub present: Option<Qty>,
 }
 
 fn add(lhs: Option<Qty>, rhs: &Qty) -> Option<Qty> {
@@ -134,6 +137,7 @@ pub fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
                     ResourceQualifier::Utilization => {
                         acc.utilization = add(acc.utilization, &v.quantity)
                     }
+                    ResourceQualifier::Present => acc.present = add(acc.present, &v.quantity),
                 };
                 acc
             });
@@ -384,7 +388,7 @@ pub async fn extract_allocatable_from_pods(
         for container in containers.into_iter() {
             if let Some(requirements) = container.resources {
                 if let Some(r) = requirements.requests {
-                    process_resources(&mut resource_requests, &r, std::ops::Add::add)?
+                    process_resources(&mut resource_requests, &r, std::ops::Add::add)?;
                 }
                 if let Some(r) = requirements.limits {
                     process_resources(&mut resource_limits, &r, std::ops::Add::add)?;
@@ -423,6 +427,19 @@ pub async fn extract_allocatable_from_pods(
             ResourceQualifier::Limit,
             &resource_limits,
         )?;
+        // HACK add zero/None cpu & memory, to allow show-zero to display them
+        resources.push(Resource {
+            kind: "cpu".to_string(),
+            qualifier: ResourceQualifier::Present,
+            quantity: Qty::zero(),
+            location: location.clone(),
+        });
+        resources.push(Resource {
+            kind: "memory".to_string(),
+            qualifier: ResourceQualifier::Present,
+            quantity: Qty::zero(),
+            location: location.clone(),
+        });
     }
     Ok(())
 }
@@ -445,6 +462,7 @@ pub fn extract_locations(
 }
 
 //TODO need location of pods (aka node because its not part of metrics)
+//TODO filter to only retreive info from node's selector
 #[instrument(skip(client, resources))]
 pub async fn collect_from_metrics(
     client: kube::Client,
@@ -613,7 +631,8 @@ pub struct CliOpts {
     #[arg(short = 'u', long, value_parser)]
     pub utilization: bool,
 
-    /// Show lines with zero requested, zero limit, zero allocatable
+    /// Show lines with zero requested AND zero limit AND zero allocatable,
+    /// OR pods with unset requested AND limit for `cpu` and `memory`
     #[arg(short = 'z', long, value_parser)]
     pub show_zero: bool,
 

@@ -76,7 +76,7 @@ Options:
   -u, --utilization
           Force to retrieve utilization (for cpu and memory), requires having metrics-server https://github.com/kubernetes-sigs/metrics-server
   -z, --show-zero
-          Show lines with zero requested, zero limit, zero allocatable
+          Show lines with zero requested AND zero limit AND zero allocatable, OR pods with unset requested AND limit for `cpu` and `memory`
       --used-mode <USED_MODE>
           The way to compute the `used` part for free (`allocatable - used`) [default: max-request-limit] [possible values: max-request-limit, only-request]
       --precheck
