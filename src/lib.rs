@@ -341,22 +341,29 @@ where
 pub async fn collect_from_pods(
     client: kube::Client,
     resources: &mut Vec<Resource>,
-    namespace: &Option<String>,
+    namespace: &[String],
     selected_node_names: &[String],
 ) -> Result<(), Error> {
-    let api_pods: Api<Pod> = if let Some(ns) = namespace {
-        Api::namespaced(client, ns)
+    let mut apis: Vec<Api<Pod>> = vec![];
+    if namespace.is_empty() {
+        apis.push(Api::all(client))
     } else {
-        Api::all(client)
-    };
-    let pods = api_pods
-        .list(&ListParams::default())
-        .await
-        .map_err(|source| Error::KubeError {
-            context: "list pods".to_string(),
-            source,
-        })?
-        .items;
+        for ns in namespace {
+            apis.push(Api::namespaced(client.clone(), &ns))
+        }
+    }
+    let mut pods: Vec<Pod> = vec![];
+    for api in apis {
+        pods.extend(api
+            .list(&ListParams::default())
+            .await
+            .map_err(|source| Error::KubeError {
+                context: "list pods".to_string(),
+                source,
+            })?
+            .items
+        );
+    }
     extract_allocatable_from_pods(pods, resources, selected_node_names).await?;
     Ok(())
 }
@@ -618,9 +625,9 @@ pub struct CliOpts {
     #[arg(long, value_parser)]
     pub context: Option<String>,
 
-    /// Show only pods from this namespace
-    #[arg(short, long, value_parser)]
-    pub namespace: Option<String>,
+    /// Filter pods by namespace(s), by default pods in all namespaces are listed
+    #[arg(short, long, value_parser, value_delimiter= ',', num_args = 1..)]
+    pub namespace: Vec<String>,
 
     /// Show only nodes match this label selector
     #[arg(short = 'l', long, value_parser)]
