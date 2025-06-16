@@ -6,6 +6,7 @@ pub mod tree;
 use chrono::prelude::*;
 use clap::{Parser, ValueEnum};
 use core::convert::TryFrom;
+use futures::future::try_join_all;
 use itertools::Itertools;
 use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::{Api, ListParams, ObjectList};
@@ -352,18 +353,21 @@ pub async fn collect_from_pods(
             apis.push(Api::namespaced(client.clone(), &ns))
         }
     }
-    let mut pods: Vec<Pod> = vec![];
-    for api in apis {
-        pods.extend(api
-            .list(&ListParams::default())
-            .await
-            .map_err(|source| Error::KubeError {
-                context: "list pods".to_string(),
-                source,
-            })?
-            .items
-        );
-    }
+
+    // Call `list` concurrently on every apis
+    let pods: Vec<Pod> = try_join_all(
+        apis.iter()
+            .map(|api| async { api.list(&ListParams::default()).await }),
+    )
+    .await
+    .map_err(|source| Error::KubeError {
+        context: "list pods".to_string(),
+        source,
+    })?
+    .into_iter()
+    .flat_map(|list| list.items)
+    .collect();
+
     extract_allocatable_from_pods(pods, resources, selected_node_names).await?;
     Ok(())
 }
