@@ -122,7 +122,7 @@ impl QtyByQualifier {
 pub fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
     if !rsrcs.is_empty() {
         let kind = rsrcs
-            .get(0)
+            .first()
             .expect("group contains at least 1 element")
             .kind
             .clone();
@@ -295,6 +295,7 @@ pub fn is_scheduled(pod: &Pod) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(clippy::result_large_err)]
 fn push_resources(
     resources: &mut Vec<Resource>,
     location: &Location,
@@ -319,6 +320,7 @@ fn push_resources(
     Ok(())
 }
 
+#[allow(clippy::result_large_err)]
 fn process_resources<F>(
     effective_resources: &mut BTreeMap<String, Qty>,
     resource_list: &BTreeMap<String, k8s_openapi::apimachinery::pkg::api::resource::Quantity>,
@@ -350,7 +352,7 @@ pub async fn collect_from_pods(
         apis.push(Api::all(client))
     } else {
         for ns in namespace {
-            apis.push(Api::namespaced(client.clone(), &ns))
+            apis.push(Api::namespaced(client.clone(), ns))
         }
     }
 

@@ -75,7 +75,7 @@ impl PartialOrd for Scale {
             Some(Ordering::Greater)
         } else if v1 < v2 {
             Some(Ordering::Less)
-        } else if (v1 - v2).abs() < std::f64::EPSILON {
+        } else if (v1 - v2).abs() < f64::EPSILON {
             Some(Ordering::Equal)
         } else {
             None
@@ -128,7 +128,7 @@ impl Qty {
         if base100.value != 0 {
             f64::from(self) * 100f64 / f64::from(base100)
         } else {
-            core::f64::NAN
+            f64::NAN
         }
     }
 
@@ -181,9 +181,7 @@ impl std::fmt::Display for Qty {
 impl PartialOrd for Qty {
     //TODO optimize accuracy with big number
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let v1 = self.value; // f64::from(self);
-        let v2 = other.value; // f64::from(other);
-        v1.partial_cmp(&v2)
+        Some(self.cmp(other))
     }
 }
 
