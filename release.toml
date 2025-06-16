@@ -1,8 +1,8 @@
-pre-release-commit-message = ":rocket: (cargo-release) version {{version}}"
+pre-release-commit-message = "🚀 (cargo-release) version {{version}}"
 # post-release-commit-message = ":construction: (cargo-release) start next development iteration {{next_version}}"
 tag-prefix = ""
 tag-name = "{{prefix}}{{version}}"
-tag-message = ":bookmark: {{version}}"
+tag-message = "🔖 {{version}}"
 # dev-version-ext = "dev"
 # dev-version = true
 # pre-release-replacements = [
