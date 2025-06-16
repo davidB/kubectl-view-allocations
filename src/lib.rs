@@ -631,7 +631,7 @@ pub struct CliOpts {
     #[arg(long, value_parser)]
     pub context: Option<String>,
 
-    /// Filter pods by namespace(s), by default pods in all namespaces are listed
+    /// Filter pods by namespace(s), by default pods in all namespaces are listed (comma separated list or multiple calls)
     #[arg(short, long, value_parser, value_delimiter= ',', num_args = 1..)]
     pub namespace: Vec<String>,
 
@@ -667,11 +667,11 @@ pub struct CliOpts {
     #[arg(long, value_parser)]
     pub accept_invalid_certs: bool,
 
-    /// Filter resources shown by name(s), by default all resources are listed
+    /// Filter resources shown by name(s), by default all resources are listed (comma separated list or multiple calls)
     #[arg(short, long, value_parser, value_delimiter= ',', num_args = 1..)]
     pub resource_name: Vec<String>,
 
-    /// Group information hierarchically (default: `-g resource -g node -g pod`)
+    /// Group information in a hierarchical manner; defaults to `-g resource,node,pod` (comma-separated list or multiple calls)
     #[arg(short, long, value_enum, ignore_case = true, value_parser, value_delimiter= ',', num_args = 1..)]
     pub group_by: Vec<GroupBy>,
 

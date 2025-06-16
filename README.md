@@ -69,8 +69,8 @@ Usage: kubectl-view-allocations [OPTIONS]
 Options:
       --context <CONTEXT>
           The name of the kubeconfig context to use
-  -n, --namespace <NAMESPACE>
-          Show only pods from this namespace
+  -n, --namespace <NAMESPACE>...
+          Filter pods by namespace(s), by default pods in all namespaces are listed (comma separated list or multiple calls)
   -l, --selector <SELECTOR>
           Show only nodes match this label selector
   -u, --utilization
@@ -84,9 +84,9 @@ Options:
       --accept-invalid-certs
           Accept invalid certificates (dangerous)
   -r, --resource-name <RESOURCE_NAME>...
-          Filter resources shown by name(s), by default all resources are listed
+          Filter resources shown by name(s), by default all resources are listed (comma separated list or multiple calls)
   -g, --group-by <GROUP_BY>...
-          Group information hierarchically (default: `-g resource -g node -g pod`) [possible values: resource, node, pod, namespace]
+          Group information in a hierarchical manner; defaults to `-g resource,node,pod` (comma-separated list or multiple calls) [possible values: resource, node, pod, namespace]
   -o, --output <OUTPUT>
           Output format [default: table] [possible values: table, csv]
   -h, --help
