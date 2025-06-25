@@ -732,7 +732,7 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
             })?,
     };
     info!(cluster_url = client_config.cluster_url.to_string().as_str());
-    client_config.accept_invalid_certs = cli_opts.accept_invalid_certs;
+    client_config.accept_invalid_certs = client_config.accept_invalid_certs || cli_opts.accept_invalid_certs;
     kube::Client::try_from(client_config).map_err(|source| Error::KubeError {
         context: "create the kube client".to_string(),
         source,
