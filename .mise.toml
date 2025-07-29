@@ -15,7 +15,7 @@ kubectl = "1.24"
 kind = "0.20"
 rust = { version = "1.88.0", profile="minimal", components="cargo,rustfmt,clippy"} # the rust tool stack (with cargo, fmt, clippy) to build source
 jq = "latest"
-cross = "latest"
+"cargo:cross" = "latest"
 
 [tasks.clean]
 description = "Clean build artifacts"
