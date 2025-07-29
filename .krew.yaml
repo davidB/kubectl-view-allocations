@@ -29,12 +29,6 @@ spec:
           arch: arm64
       {{addURIAndSha "https://github.com/davidB/kubectl-view-allocations/releases/download/{{ .TagName }}/kubectl-view-allocations_{{ .TagName }}-aarch64-unknown-linux-musl.tar.gz" .TagName | indent 6}}
       bin: "./kubectl-view-allocations"
-    - selector:
-        matchLabels:
-          os: windows
-          arch: amd64
-      {{addURIAndSha "https://github.com/davidB/kubectl-view-allocations/releases/download/{{ .TagName }}/kubectl-view-allocations_{{ .TagName }}-x86_64-pc-windows-msvc.zip" .TagName | indent 6}}
-      bin: "./kubectl-view-allocations.exe"
   shortDescription: List allocations per resources, nodes, pods.
   homepage: https://github.com/davidB/kubectl-view-allocations
   description: |
