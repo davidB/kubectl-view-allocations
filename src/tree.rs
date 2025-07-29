@@ -101,10 +101,10 @@ where
             level: vec![],
             children: vec![],
         };
-        if let Some(parent) = current {
-            if let Some(node) = nodes.get_mut(parent) {
-                node.children.push(i);
-            }
+        if let Some(parent) = current
+            && let Some(node) = nodes.get_mut(parent)
+        {
+            node.children.push(i);
         }
         nodes.push(treenode);
         current = Some(i);

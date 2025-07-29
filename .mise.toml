@@ -13,7 +13,7 @@ OPENSSL_STATIC = "1"
 # docker (or podman + some config) should be available for some of thoses tools
 kubectl = "1.24"
 kind = "0.20"
-rust = { version = "1.88.0", profile="minimal", components="cargo,rustfmt,clippy"} # the rust tool stack (with cargo, fmt, clippy) to build source
+rust = { version = "1.89.0", profile="minimal", components="cargo,rustfmt,clippy"} # the rust tool stack (with cargo, fmt, clippy) to build source
 jq = "latest"
 "cargo:cross" = "latest"
 
