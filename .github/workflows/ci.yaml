@@ -24,44 +24,25 @@ jobs:
         rust_toolchain: ["stable"]
         os:
           - imageName: ubuntu-latest
-            profile_rustup: default
             target_platform: x86_64-unknown-linux-gnu
           - target_platform: x86_64-apple-darwin
             imageName: "macOS-latest"
             profile_rustup: minimal
           # - imageName: "macOS-latest"
-          #   profile_rustup: minimal
           #   target_platform: aarch64-apple-darwin
           # - imageName: windows-latest
-          #   profile_rustup: minimal
           #   target_platform:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ matrix.rust_toolchain }}
-          targets: ${{ matrix.os.target_platform }}
       - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: jdx/mise-action@v2
       - name: Run tests
         run: mise run ci
         env:
-          TARGET: ${{ matrix.os.target_paddlatform }}
+          TARGET: ${{ matrix.os.target_platform }}
           # for list of xcode sdk see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/software-installed-on-github-hosted-runners#xcode
           # DEVELOPER_DIR: "/Applications/Xcode_11.app/Contents/Developer"
-          CARGO_MAKE_RUN_CODECOV: "false"
-          # to have CODECOV_TOKEN go to https://codecov.io/gh/${GITHUB_USER}/${GITHUB_REPO}
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - run: ${SCCACHE_PATH} --show-stats
         shell: bash
 
