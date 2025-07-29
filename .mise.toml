@@ -121,7 +121,7 @@ depends = ["update-changelog", "update-bom"]
 
 [tasks.publish]
 description = "Publish to crates.io"
-depends = ["update-docs"]
+# depends = ["update-docs"]
 run = """
 if ! command -v cargo-release &> /dev/null; then
     echo "Installing cargo-release..."
