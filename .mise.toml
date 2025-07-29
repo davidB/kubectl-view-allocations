@@ -3,6 +3,11 @@ CLUSTER_NAME = "demo-kube"
 DOCKER_BUILDKIT = "1"
 # BP_RUST_TOOLCHAIN = "1.86"
 # KIND_EXPERIMENTAL_PROVIDER = "podman" # to use podman and podman-docker
+RUST_TEST_THREADS = "1"
+TARGET_AUTO = "x86_64-unknown-linux-gnu"
+LIBZ_SYS_STATIC = "1"
+PKG_CONFIG_ALLOW_CROSS = "1"
+OPENSSL_STATIC = "1"
 
 [tools]
 # docker (or podman + some config) should be available for some of thoses tools
@@ -11,7 +16,188 @@ kubectl = '1.24'
 # helmfile = '0.155'
 kind = '0.20'
 rust = '1.86'
+jq = 'latest'
 
+# Basic tasks
+[tasks.default]
+description = "List available tasks"
+run = "mise tasks ls"
+
+[tasks.format]
+description = "Format code with rustfmt"
+run = "cargo fmt"
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = "cargo clean"
+
+[tasks.build]
+description = "Build the project"
+run = "cargo build"
+depends = ["clean"]
+
+[tasks.build-release]
+description = "Build the project in release mode"
+run = "cargo build --release"
+
+[tasks.test]
+description = "Run tests"
+run = "cargo test"
+depends = ["clean"]
+
+[tasks.check]
+description = "Check the project for errors"
+run = "cargo check"
+
+[tasks.clippy]
+description = "Run clippy linter"
+run = "cargo clippy -- -D warnings"
+
+[tasks.doc]
+description = "Generate documentation"
+run = "cargo doc --no-deps"
+
+# CI Flow tasks
+[tasks.ci-flow]
+description = "Main CI flow - format, check, test, clippy"
+run = """
+cargo fmt
+cargo check
+cargo test
+cargo clippy -- -D warnings
+"""
+
+[tasks.ci-static-code-analysis-tasks]
+description = "Static code analysis tasks for CI"
+run = """
+cargo fmt
+cargo check
+cargo clippy -- -D warnings
+"""
+
+# Build tasks for different targets
+[tasks.build-release-for-target]
+description = "Build release for specific target"
+run = """
+if [ -n "$TARGET" ]; then
+    if [ "$CROSS" = "true" ]; then
+        cross build --release --all-features --target "$TARGET"
+    else
+        cargo build --release --all-features --target "$TARGET"
+    fi
+else
+    cargo build --release --all-features
+fi
+"""
+
+# Distribution tasks
+[tasks.dist_env]
+description = "Set up distribution environment variables"
+run = """
+DIST_VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')
+DIST_NAME="kubectl-view-allocations_${DIST_VERSION}-${TARGET:-x86_64-unknown-linux-gnu}"
+DIST_EXT="tar.gz"
+DIST_PATH="target/dist/${DIST_NAME}"
+echo "DIST_VERSION=$DIST_VERSION"
+echo "DIST_NAME=$DIST_NAME"
+echo "DIST_PATH=$DIST_PATH"
+"""
+
+[tasks.zip-release-binary-for-target]
+description = "Create release archive for target"
+depends = ["build-release-for-target", "dist_env"]
+run = """
+DIST_VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')
+DIST_NAME="kubectl-view-allocations_${DIST_VERSION}-${TARGET:-x86_64-unknown-linux-gnu}"
+DIST_EXT="tar.gz"
+DIST_PATH="target/dist/${DIST_NAME}"
+
+rm -rf ${DIST_PATH}*
+mkdir -p ${DIST_PATH}
+
+if [ -n "$TARGET" ]; then
+    cp target/${TARGET}/release/kubectl-view-allocations ${DIST_PATH}/
+else
+    cp target/release/kubectl-view-allocations ${DIST_PATH}/
+fi
+
+cp LICENSE.txt ${DIST_PATH}/ || echo "LICENSE.txt not found"
+tar -czvf "${DIST_PATH}.${DIST_EXT}" -C "${DIST_PATH}" "kubectl-view-allocations" "LICENSE.txt"
+echo "Created: ${DIST_PATH}.${DIST_EXT}"
+"""
+
+[tasks.zip-release-ci-flow]
+description = "Complete release build and packaging"
+depends = ["zip-release-binary-for-target"]
+run = """
+DIST_VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')
+DIST_NAME="kubectl-view-allocations_${DIST_VERSION}-${TARGET:-x86_64-unknown-linux-gnu}"
+DIST_EXT="tar.gz"
+DIST_PATH="target/dist/${DIST_NAME}"
+
+if [ -n "$GITHUB_OUTPUT" ]; then
+    echo "dist_file_path=${DIST_PATH}.${DIST_EXT}" >> $GITHUB_OUTPUT
+    echo "dist_file_name=${DIST_NAME}.${DIST_EXT}" >> $GITHUB_OUTPUT
+    echo "dist_version=${DIST_VERSION}" >> $GITHUB_OUTPUT
+fi
+"""
+
+# Documentation tasks
+[tasks.update-changelog]
+description = "Update changelog using gitmoji-changelog"
+run = """
+if ! command -v gitmoji-changelog &> /dev/null; then
+    echo "Installing gitmoji-changelog..."
+    cargo install gitmoji-changelog
+fi
+rm -rf CHANGELOG.md
+gitmoji-changelog -r x.y.z-dev -o CHANGELOG.md .
+"""
+
+[tasks.update-bom]
+description = "Update Bill of Materials"
+run = """
+if ! cargo bom --help &> /dev/null; then
+    echo "Installing cargo-bom..."
+    cargo install cargo-bom
+fi
+cargo bom > BOM.txt
+"""
+
+[tasks.update-docs]
+description = "Update all documentation"
+depends = ["update-changelog", "update-bom"]
+
+# Publishing tasks
+[tasks.pre-publish]
+description = "Pre-publish tasks"
+depends = ["update-docs"]
+
+[tasks.publish]
+description = "Publish to crates.io"
+run = """
+if ! command -v cargo-release &> /dev/null; then
+    echo "Installing cargo-release..."
+    cargo install cargo-release
+fi
+cargo release
+"""
+
+# Debug task
+[tasks.debug]
+description = "Print debug information"
+run = """
+echo "TARGET=${TARGET:-x86_64-unknown-linux-gnu}"
+echo "CROSS=${CROSS:-false}"
+echo "RUST_TEST_THREADS=${RUST_TEST_THREADS}"
+echo "LIBZ_SYS_STATIC=${LIBZ_SYS_STATIC}"
+echo "PKG_CONFIG_ALLOW_CROSS=${PKG_CONFIG_ALLOW_CROSS}"
+echo "OPENSSL_STATIC=${OPENSSL_STATIC}"
+DIST_VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')
+echo "DIST_VERSION=${DIST_VERSION}"
+"""
+
+# Kubernetes testing tasks
 [tasks.k8s_create_kind]
 description = "Create kind cluster with metrics-server and run kubectl-view-allocations"
 run = """

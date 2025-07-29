@@ -56,9 +56,9 @@ jobs:
           toolchain: ${{ matrix.rust_toolchain }}
           targets: ${{ matrix.os.target_platform }}
       - uses: mozilla-actions/sccache-action@v0.0.9
-      - uses: davidB/rust-cargo-make@v1
+      - uses: jdx/mise-action@v2
       - name: Run tests
-        run: cargo make --disable-check-for-updates --profile "${{ matrix.os.profile_ci_flow }}" ci-flow
+        run: mise run ${{ matrix.os.profile_ci_flow == 'ci-static-code-analysis-tasks' && 'ci-static-code-analysis-tasks' || 'ci-flow' }}
         env:
           TARGET: ${{ matrix.os.target_paddlatform }}
           # for list of xcode sdk see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/software-installed-on-github-hosted-runners#xcode
@@ -84,6 +84,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: jdx/mise-action@v2
       - name: Run on k3d
         run: cargo run
       - run: ${SCCACHE_PATH} --show-stats

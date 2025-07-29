@@ -46,10 +46,10 @@ jobs:
           toolchain: ${{ matrix.rust_toolchain }}
           targets: ${{ matrix.os.target_platform }}
       - uses: mozilla-actions/sccache-action@v0.0.9
-      - uses: davidB/rust-cargo-make@v1
+      - uses: jdx/mise-action@v2
       - name: Make zip-release-ci-flow
         id: zip-release-ci-flow
-        run: cargo make --disable-check-for-updates zip-release-ci-flow
+        run: mise run zip-release-ci-flow
         env:
           TARGET: ${{ matrix.os.target_platform }}
           CROSS: ${{ matrix.os.cross }}
