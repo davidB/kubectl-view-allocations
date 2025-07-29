@@ -53,6 +53,8 @@ cargo clippy -- -D warnings
 description = "Build release for specific target"
 run = """
 if [ -n "$TARGET" ]; then
+    rustup toolchain install stable --target "$TARGET" --profile minimal --no-self-update
+    rustup target add "$TARGET"
     if [ "$CROSS" = "true" ]; then
         cross build --release --all-features --target "$TARGET"
     else

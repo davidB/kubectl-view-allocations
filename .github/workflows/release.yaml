@@ -21,7 +21,7 @@ jobs:
     runs-on: ${{ matrix.os.imageName }}
     strategy:
       matrix:
-        rust_toolchain: ["stable"]
+        # rust_toolchain: ["stable"]
         os:
           - target_platform: x86_64-unknown-linux-gnu
             imageName: ubuntu-latest
@@ -41,12 +41,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ matrix.rust_toolchain }}
-          targets: ${{ matrix.os.target_platform }}
       - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: jdx/mise-action@v2
+      # - uses: dtolnay/rust-toolchain@stable
+      #   with:
+      #     toolchain: ${{ matrix.rust_toolchain }}
+      #     targets: ${{ matrix.os.target_platform }}
       - name: Make zip-release-ci-flow
         id: zip-release-ci-flow
         run: mise run zip-release-ci-flow
