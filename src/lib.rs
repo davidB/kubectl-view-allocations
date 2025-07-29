@@ -13,8 +13,8 @@ use kube::api::{Api, ListParams, ObjectList};
 #[cfg(feature = "prettytable")]
 use prettytable::{Cell, Row, Table, format, row};
 use qty::Qty;
-use std::collections::BTreeMap;
 use std::str::FromStr;
+use std::{collections::BTreeMap, path::PathBuf};
 use tracing::{info, instrument, warn};
 
 #[derive(thiserror::Error, Debug)]
@@ -627,6 +627,10 @@ pub enum UsedMode {
     propagate_version = true
 )]
 pub struct CliOpts {
+    /// Path to the kubeconfig file to use for requests to kubernetes cluster
+    #[arg(long, value_parser)]
+    pub kubeconfig: Option<PathBuf>,
+
     /// The name of the kubeconfig context to use
     #[arg(long, value_parser)]
     pub context: Option<String>,
@@ -692,6 +696,9 @@ pub async fn refresh_kube_config(cli_opts: &CliOpts) -> Result<(), Error> {
     use std::process::Command;
     let mut cmd = Command::new("kubectl");
     cmd.arg("cluster-info");
+    if let Some(ref kubeconfig) = cli_opts.kubeconfig {
+        cmd.arg("--kubeconfig").arg(kubeconfig);
+    }
     if let Some(ref context) = cli_opts.context {
         cmd.arg("--context").arg(context);
     }
@@ -714,8 +721,28 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
     if cli_opts.precheck {
         refresh_kube_config(cli_opts).await?;
     }
-    let mut client_config = match cli_opts.context {
-        Some(ref context) => kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
+    let mut client_config = match (&cli_opts.kubeconfig, &cli_opts.context) {
+        (Some(kubeconfig), context) => {
+            let options = kube::config::KubeConfigOptions {
+                context: context.clone(),
+                ..Default::default()
+            };
+            kube::Config::from_custom_kubeconfig(
+                kube::config::Kubeconfig::read_from(std::path::Path::new(kubeconfig)).map_err(
+                    |source| Error::KubeConfigError {
+                        context: format!("read kubeconfig from {}", kubeconfig.to_string_lossy()),
+                        source,
+                    },
+                )?,
+                &options,
+            )
+            .await
+            .map_err(|source| Error::KubeConfigError {
+                context: "create the kube client config from custom kubeconfig".to_string(),
+                source,
+            })?
+        }
+        (None, Some(context)) => kube::Config::from_kubeconfig(&kube::config::KubeConfigOptions {
             context: Some(context.clone()),
             ..Default::default()
         })
@@ -724,15 +751,18 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
             context: "create the kube client config".to_string(),
             source,
         })?,
-        None => kube::Config::infer()
-            .await
-            .map_err(|source| Error::KubeInferConfigError {
-                context: "create the kube client config".to_string(),
-                source,
-            })?,
+        (None, None) => {
+            kube::Config::infer()
+                .await
+                .map_err(|source| Error::KubeInferConfigError {
+                    context: "create the kube client config".to_string(),
+                    source,
+                })?
+        }
     };
     info!(cluster_url = client_config.cluster_url.to_string().as_str());
-    client_config.accept_invalid_certs = client_config.accept_invalid_certs || cli_opts.accept_invalid_certs;
+    client_config.accept_invalid_certs =
+        client_config.accept_invalid_certs || cli_opts.accept_invalid_certs;
     kube::Client::try_from(client_config).map_err(|source| Error::KubeError {
         context: "create the kube client".to_string(),
         source,

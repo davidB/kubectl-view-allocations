@@ -67,6 +67,8 @@ kubectl plugin to list allocations (cpu, memory, gpu,...) X (utilization, reques
 Usage: kubectl-view-allocations [OPTIONS]
 
 Options:
+      --kubeconfig <KUBECONFIG>
+          Path to the kubeconfig file to use for requests to kubernetes cluster
       --context <CONTEXT>
           The name of the kubeconfig context to use
   -n, --namespace <NAMESPACE>...
@@ -216,7 +218,7 @@ Date,Kind,resource,Requested,%Requested,Limit,%Limit,Allocatable,Free
 
 - see the discussion [Need simple kubectl command to see cluster resource usage · Issue #17512 · kubernetes/kubernetes](https://github.com/kubernetes/kubernetes/issues/17512)
 - For CPU & Memory only
-  - [ahmetb/kubectl-node\_resource: Query node allocations/utilization in kubectl](https://github.com/ahmetb/kubectl-node_resource)
+  - [ahmetb/kubectl-node_resource: Query node allocations/utilization in kubectl](https://github.com/ahmetb/kubectl-node_resource)
   - [robscott/kube-capacity: A simple CLI that provides an overview of the resource requests, limits, and utilization in a Kubernetes cluster](https://github.com/robscott/kube-capacity),
   - [hjacobs/kube-resource-report: Report Kubernetes cluster and pod resource requests vs usage and generate static HTML](https://github.com/hjacobs/kube-resource-report)
   - [etopeter/kubectl-view-utilization: kubectl plugin to show cluster CPU and Memory requests utilization](https://github.com/etopeter/kubectl-view-utilization)
