@@ -36,8 +36,8 @@ jobs:
             imageName: "macOS-latest"
           - target_platform: aarch64-apple-darwin
             imageName: "macOS-latest"
-          - target_platform: x86_64-pc-windows-msvc
-            imageName: windows-latest
+          # - target_platform: x86_64-pc-windows-msvc
+          #   imageName: windows-latest
 
     steps:
       - uses: actions/checkout@v4

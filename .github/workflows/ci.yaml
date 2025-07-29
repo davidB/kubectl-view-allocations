@@ -25,19 +25,15 @@ jobs:
         os:
           - imageName: ubuntu-latest
             profile_rustup: default
-            profile_ci_flow: ci-static-code-analysis-tasks
             target_platform: x86_64-unknown-linux-gnu
           - target_platform: x86_64-apple-darwin
             imageName: "macOS-latest"
             profile_rustup: minimal
-            profile_ci_flow: none
           # - imageName: "macOS-latest"
           #   profile_rustup: minimal
-          #   profile_ci_flow: none
           #   target_platform: aarch64-apple-darwin
           # - imageName: windows-latest
           #   profile_rustup: minimal
-          #   profile_ci_flow: none
           #   target_platform:
 
     steps:
@@ -58,7 +54,7 @@ jobs:
       - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: jdx/mise-action@v2
       - name: Run tests
-        run: mise run ${{ matrix.os.profile_ci_flow == 'ci-static-code-analysis-tasks' && 'ci-static-code-analysis-tasks' || 'ci-flow' }}
+        run: mise run ci
         env:
           TARGET: ${{ matrix.os.target_paddlatform }}
           # for list of xcode sdk see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/software-installed-on-github-hosted-runners#xcode
