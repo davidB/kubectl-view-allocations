@@ -40,7 +40,7 @@ jobs:
           #   imageName: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: jdx/mise-action@v2
       # - uses: dtolnay/rust-toolchain@stable
@@ -72,6 +72,6 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Update new version in krew-index
         uses: rajatjindal/krew-release-bot@v0.0.47
