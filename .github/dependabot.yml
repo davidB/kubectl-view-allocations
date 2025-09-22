@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     allow:
       - dependency-type: "direct"
   - package-ecosystem: "github-actions"
@@ -11,4 +11,4 @@ updates:
     # default location of `.github/workflows`
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
