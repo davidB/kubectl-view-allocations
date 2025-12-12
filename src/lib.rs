@@ -202,10 +202,21 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
     resource_filter.is_empty() || resource_filter.iter().any(|x| name.contains(x))
 }
 
-fn should_exclude_node_by_taint(node: &Node, exclude_taints: &[String]) -> bool {
+fn should_exclude_node_by_taint(node: &Node, exclude_taints: &Option<Vec<String>>) -> bool {
+
     // If no exclude patterns specified, don't exclude any nodes
-    if exclude_taints.is_empty() {
-        return false;
+    let exclude_patterns = match exclude_taints {
+        None => return false, // No --exclude-taints flag used
+        Some(patterns) => patterns,
+    };
+
+    // If flag was used without values (empty Vec), exclude all nodes with any taints
+    if exclude_patterns.is_empty() {
+        let taints = node.spec.as_ref()
+            .and_then(|spec| spec.taints.as_ref())
+            .map(|taints| taints.as_slice())
+            .unwrap_or(&[]);
+        return !taints.is_empty();
     }
 
     let taints = node.spec.as_ref()
@@ -213,13 +224,8 @@ fn should_exclude_node_by_taint(node: &Node, exclude_taints: &[String]) -> bool 
         .map(|taints| taints.as_slice())
         .unwrap_or(&[]);
 
-    // If exclude_taints contains empty string (flag used without values), exclude all nodes with any taints
-    if exclude_taints.iter().any(|s| s.is_empty()) && !taints.is_empty() {
-        return true;
-    }
-
     // Check if any of the exclude patterns match
-    for exclude_pattern in exclude_taints {
+    for exclude_pattern in exclude_patterns {
         // Skip empty patterns (already handled above)
         if exclude_pattern.is_empty() {
             continue;
@@ -258,7 +264,7 @@ pub async fn collect_from_nodes(
     client: kube::Client,
     resources: &mut Vec<Resource>,
     selector: &Option<String>,
-    exclude_taints: &[String],
+    exclude_taints: &Option<Vec<String>>,
 ) -> Result<Vec<String>, Error> {
     let api_nodes: Api<Node> = Api::all(client);
     let mut lp = ListParams::default();
@@ -704,7 +710,7 @@ pub struct CliOpts {
 
     /// Exclude nodes with taints; can be used without values to exclude all nodes with any taints, or with specific taint patterns to exclude (comma-separated list)
     #[arg(long, value_parser, value_delimiter = ',', num_args = 0..)]
-    pub exclude_taints: Vec<String>,
+    pub exclude_taints: Option<Vec<String>>,
 
     /// Force to retrieve utilization (for cpu and memory), requires
     /// having metrics-server https://github.com/kubernetes-sigs/metrics-server
