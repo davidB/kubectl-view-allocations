@@ -203,6 +203,7 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
 }
 
 fn should_exclude_node_by_taint(node: &Node, exclude_taints: &[String]) -> bool {
+    // If no exclude patterns specified, don't exclude any nodes
     if exclude_taints.is_empty() {
         return false;
     }
@@ -212,16 +213,16 @@ fn should_exclude_node_by_taint(node: &Node, exclude_taints: &[String]) -> bool 
         .map(|taints| taints.as_slice())
         .unwrap_or(&[]);
 
-    // If node has no taints and we want to exclude nodes with "any" taints
-    if taints.is_empty() && exclude_taints.contains(&"any".to_string()) {
-        return false; // Don't exclude nodes without taints when excluding "any"
+    // If exclude_taints contains empty string (flag used without values), exclude all nodes with any taints
+    if exclude_taints.iter().any(|s| s.is_empty()) && !taints.is_empty() {
+        return true;
     }
 
     // Check if any of the exclude patterns match
     for exclude_pattern in exclude_taints {
-        if exclude_pattern == "any" && !taints.is_empty() {
-            // Exclude if node has any taints and we're excluding "any"
-            return true;
+        // Skip empty patterns (already handled above)
+        if exclude_pattern.is_empty() {
+            continue;
         }
 
         // Check for exact matches or partial matches
@@ -701,8 +702,8 @@ pub struct CliOpts {
     #[arg(short = 'l', long, value_parser)]
     pub selector: Option<String>,
 
-    /// Exclude nodes with taints matching the specified pattern (comma-separated list, use 'any' to exclude all nodes with taints)
-    #[arg(long, value_parser, value_delimiter = ',', num_args = 1..)]
+    /// Exclude nodes with taints; can be used without values to exclude all nodes with any taints, or with specific taint patterns to exclude (comma-separated list)
+    #[arg(long, value_parser, value_delimiter = ',', num_args = 0..)]
     pub exclude_taints: Vec<String>,
 
     /// Force to retrieve utilization (for cpu and memory), requires

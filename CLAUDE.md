@@ -63,7 +63,7 @@ cargo +nightly run -- --help # Show CLI options
 ### Filter by Node Taints
 ```bash
 # Exclude all nodes with any taints (show only untainted nodes)
-kubectl-view-allocations --exclude-taints any
+kubectl-view-allocations --exclude-taints
 
 # Exclude nodes with specific taint keys
 kubectl-view-allocations --exclude-taints node-role.kubernetes.io/control-plane
@@ -72,10 +72,13 @@ kubectl-view-allocations --exclude-taints node-role.kubernetes.io/control-plane
 kubectl-view-allocations --exclude-taints dedicated=database
 
 # Exclude multiple taint patterns
-kubectl-view-allocations --exclude-taints any,dedicated=database
+kubectl-view-allocations --exclude-taints node-role.kubernetes.io/control-plane,dedicated=database
 
 # Combine with other filters
-kubectl-view-allocations -l environment=production --exclude-taints any
+kubectl-view-allocations -l environment=production --exclude-taints
+
+# Support taints named 'any' (no more special case conflicts)
+kubectl-view-allocations --exclude-taints any
 ```
 
 ### Kubernetes Testing
