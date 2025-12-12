@@ -62,23 +62,32 @@ cargo +nightly run -- --help # Show CLI options
 
 ### Filter by Node Taints
 ```bash
-# Exclude all nodes with any taints (show only untainted nodes)
-kubectl-view-allocations --exclude-taints
+# Default: Only show nodes without taints (workload nodes)
+kubectl-view-allocations
 
-# Exclude nodes with specific taint keys
-kubectl-view-allocations --exclude-taints node-role.kubernetes.io/control-plane
+# Ignore all taints and show all nodes (including control-plane)
+kubectl-view-allocations --ignore-taints
 
-# Exclude nodes with specific taint key-value pairs
-kubectl-view-allocations --exclude-taints dedicated=database
+# Show untainted nodes + nodes with specific taints (ignore these taints)
+kubectl-view-allocations --ignore-taints node-role.kubernetes.io/control-plane
 
-# Exclude multiple taint patterns
-kubectl-view-allocations --exclude-taints node-role.kubernetes.io/control-plane,dedicated=database
+# Show untainted nodes + nodes with specific taint key-value pairs
+kubectl-view-allocations --ignore-taints dedicated=database
+
+# Ignore multiple taint patterns
+kubectl-view-allocations --ignore-taints node-role.kubernetes.io/control-plane,dedicated=database
 
 # Combine with other filters
-kubectl-view-allocations -l environment=production --exclude-taints
+kubectl-view-allocations -l environment=production --ignore-taints dedicated=database
 
-# Support taints named 'any' (no more special case conflicts)
-kubectl-view-allocations --exclude-taints any
+# Support taints literally named 'any'
+kubectl-view-allocations --ignore-taints any
+
+# Common use cases:
+# - Default: Show only workload nodes (no taints)
+# --ignore-taints: Show all nodes for complete cluster overview
+# --ignore-taints node-role.kubernetes.io/control-plane: Show workload + control-plane nodes
+# --ignore-taints dedicated,workload: Include dedicated/workload nodes with workload nodes
 ```
 
 ### Kubernetes Testing
