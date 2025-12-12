@@ -202,48 +202,37 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
     resource_filter.is_empty() || resource_filter.iter().any(|x| name.contains(x))
 }
 
-fn should_exclude_node_by_taint(node: &Node, exclude_taints: &Option<Vec<String>>) -> bool {
-
-    // If no exclude patterns specified, don't exclude any nodes
-    let exclude_patterns = match exclude_taints {
-        None => return false, // No --exclude-taints flag used
-        Some(patterns) => patterns,
-    };
-
-    // If flag was used without values (empty Vec), exclude all nodes with any taints
-    if exclude_patterns.is_empty() {
-        let taints = node.spec.as_ref()
-            .and_then(|spec| spec.taints.as_ref())
-            .map(|taints| taints.as_slice())
-            .unwrap_or(&[]);
-        return !taints.is_empty();
-    }
-
+fn should_include_node_by_taint(node: &Node, include_taints: &[String]) -> bool {
     let taints = node.spec.as_ref()
         .and_then(|spec| spec.taints.as_ref())
         .map(|taints| taints.as_slice())
         .unwrap_or(&[]);
 
-    // Check if any of the exclude patterns match
-    for exclude_pattern in exclude_patterns {
-        // Skip empty patterns (already handled above)
-        if exclude_pattern.is_empty() {
-            continue;
-        }
+    // If no include patterns specified, only include nodes without taints
+    if include_taints.is_empty() {
+        return taints.is_empty();
+    }
 
+    // If node has no taints but include patterns are specified, don't include it
+    if taints.is_empty() {
+        return false;
+    }
+
+    // Check if any of the include patterns match
+    for include_pattern in include_taints {
         // Check for exact matches or partial matches
         for taint in taints {
             let taint_key = taint.key.as_str();
             let taint_value = taint.value.as_ref().map(|s| s.as_str());
 
-            if exclude_pattern == taint_key {
+            if include_pattern == taint_key {
                 return true;
             }
 
             // Check for key=value pattern
-            if let Some(eq_pos) = exclude_pattern.find('=') {
-                let pattern_key = &exclude_pattern[..eq_pos];
-                let pattern_value = &exclude_pattern[eq_pos + 1..];
+            if let Some(eq_pos) = include_pattern.find('=') {
+                let pattern_key = &include_pattern[..eq_pos];
+                let pattern_value = &include_pattern[eq_pos + 1..];
 
                 if pattern_key == taint_key {
                     if let Some(value) = taint_value {
@@ -264,7 +253,7 @@ pub async fn collect_from_nodes(
     client: kube::Client,
     resources: &mut Vec<Resource>,
     selector: &Option<String>,
-    exclude_taints: &Option<Vec<String>>,
+    include_taints: &[String],
 ) -> Result<Vec<String>, Error> {
     let api_nodes: Api<Node> = Api::all(client);
     let mut lp = ListParams::default();
@@ -283,7 +272,7 @@ pub async fn collect_from_nodes(
     // Filter nodes by taints
     let filtered_nodes: Vec<Node> = all_nodes
         .into_iter()
-        .filter(|node| !should_exclude_node_by_taint(node, exclude_taints))
+        .filter(|node| should_include_node_by_taint(node, include_taints))
         .collect();
 
     let node_names = filtered_nodes
@@ -708,9 +697,9 @@ pub struct CliOpts {
     #[arg(short = 'l', long, value_parser)]
     pub selector: Option<String>,
 
-    /// Exclude nodes with taints; can be used without values to exclude all nodes with any taints, or with specific taint patterns to exclude (comma-separated list)
-    #[arg(long, value_parser, value_delimiter = ',', num_args = 0..)]
-    pub exclude_taints: Option<Vec<String>>,
+    /// Include nodes with specific taints; when not specified, only nodes without taints are shown (comma-separated list)
+    #[arg(long, value_parser, value_delimiter = ',', num_args = 1..)]
+    pub include_taints: Vec<String>,
 
     /// Force to retrieve utilization (for cpu and memory), requires
     /// having metrics-server https://github.com/kubernetes-sigs/metrics-server
@@ -842,7 +831,7 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
 pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
     let client = new_client(cli_opts).await?;
     let mut resources: Vec<Resource> = vec![];
-    let node_names = collect_from_nodes(client.clone(), &mut resources, &cli_opts.selector, &cli_opts.exclude_taints).await?;
+    let node_names = collect_from_nodes(client.clone(), &mut resources, &cli_opts.selector, &cli_opts.include_taints).await?;
     collect_from_pods(
         client.clone(),
         &mut resources,
@@ -1101,30 +1090,19 @@ mod tests {
     }
 
     #[test]
-    fn test_should_exclude_node_by_taint_no_flag() {
-        let node = create_test_node("test-node", vec![]);
-        assert!(!should_exclude_node_by_taint(&node, &None));
-
-        let node_with_taint = create_test_node("test-node", vec![
-            create_test_taint("key1", Some("value1"))
-        ]);
-        assert!(!should_exclude_node_by_taint(&node_with_taint, &None));
-    }
-
-    #[test]
-    fn test_should_exclude_node_by_taint_flag_without_values() {
+    fn test_should_include_node_by_taint_default_behavior() {
         let node_without_taints = create_test_node("test-node", vec![]);
         let node_with_taints = create_test_node("test-node", vec![
             create_test_taint("key1", Some("value1"))
         ]);
 
-        // Flag used without values should exclude all nodes with any taints
-        assert!(!should_exclude_node_by_taint(&node_without_taints, &Some(vec![])));
-        assert!(should_exclude_node_by_taint(&node_with_taints, &Some(vec![])));
+        // Default behavior: only include nodes without taints
+        assert!(should_include_node_by_taint(&node_without_taints, &vec![]));
+        assert!(!should_include_node_by_taint(&node_with_taints, &vec![]));
     }
 
     #[test]
-    fn test_should_exclude_node_by_taint_specific_key() {
+    fn test_should_include_node_by_taint_specific_key() {
         let node_with_key1 = create_test_node("test-node", vec![
             create_test_taint("key1", Some("value1"))
         ]);
@@ -1133,14 +1111,14 @@ mod tests {
         ]);
         let node_with_no_taints = create_test_node("test-node", vec![]);
 
-        // Filter by specific key
-        assert!(should_exclude_node_by_taint(&node_with_key1, &Some(vec!["key1".to_string()])));
-        assert!(!should_exclude_node_by_taint(&node_with_key2, &Some(vec!["key1".to_string()])));
-        assert!(!should_exclude_node_by_taint(&node_with_no_taints, &Some(vec!["key1".to_string()])));
+        // Include only nodes with specific taint key
+        assert!(should_include_node_by_taint(&node_with_key1, &vec!["key1".to_string()]));
+        assert!(!should_include_node_by_taint(&node_with_key2, &vec!["key1".to_string()]));
+        assert!(!should_include_node_by_taint(&node_with_no_taints, &vec!["key1".to_string()]));
     }
 
     #[test]
-    fn test_should_exclude_node_by_taint_key_value_pair() {
+    fn test_should_include_node_by_taint_key_value_pair() {
         let node_with_matching_taint = create_test_node("test-node", vec![
             create_test_taint("key1", Some("value1"))
         ]);
@@ -1152,15 +1130,15 @@ mod tests {
         ]);
         let node_with_no_taints = create_test_node("test-node", vec![]);
 
-        // Filter by key-value pair
-        assert!(should_exclude_node_by_taint(&node_with_matching_taint, &Some(vec!["key1=value1".to_string()])));
-        assert!(!should_exclude_node_by_taint(&node_with_different_value, &Some(vec!["key1=value1".to_string()])));
-        assert!(!should_exclude_node_by_taint(&node_with_different_key, &Some(vec!["key1=value1".to_string()])));
-        assert!(!should_exclude_node_by_taint(&node_with_no_taints, &Some(vec!["key1=value1".to_string()])));
+        // Include only nodes with specific key-value pair
+        assert!(should_include_node_by_taint(&node_with_matching_taint, &vec!["key1=value1".to_string()]));
+        assert!(!should_include_node_by_taint(&node_with_different_value, &vec!["key1=value1".to_string()]));
+        assert!(!should_include_node_by_taint(&node_with_different_key, &vec!["key1=value1".to_string()]));
+        assert!(!should_include_node_by_taint(&node_with_no_taints, &vec!["key1=value1".to_string()]));
     }
 
     #[test]
-    fn test_should_exclude_node_by_taint_multiple_patterns() {
+    fn test_should_include_node_by_taint_multiple_patterns() {
         let node_with_key1 = create_test_node("test-node", vec![
             create_test_taint("key1", Some("value1"))
         ]);
@@ -1173,16 +1151,16 @@ mod tests {
         ]);
         let node_with_no_taints = create_test_node("test-node", vec![]);
 
-        // Filter by multiple patterns
+        // Include nodes with any of the specified patterns
         let patterns = vec!["key1".to_string(), "key2=value2".to_string()];
-        assert!(should_exclude_node_by_taint(&node_with_key1, &Some(patterns.clone())));
-        assert!(should_exclude_node_by_taint(&node_with_key2, &Some(patterns.clone())));
-        assert!(should_exclude_node_by_taint(&node_with_both_keys, &Some(patterns.clone())));
-        assert!(!should_exclude_node_by_taint(&node_with_no_taints, &Some(patterns.clone())));
+        assert!(should_include_node_by_taint(&node_with_key1, &patterns));
+        assert!(should_include_node_by_taint(&node_with_key2, &patterns));
+        assert!(should_include_node_by_taint(&node_with_both_keys, &patterns));
+        assert!(!should_include_node_by_taint(&node_with_no_taints, &patterns));
     }
 
     #[test]
-    fn test_should_exclude_node_by_taint_real_world_examples() {
+    fn test_should_include_node_by_taint_real_world_examples() {
         let control_plane_node = create_test_node("control-plane", vec![
             create_test_taint("node-role.kubernetes.io/control-plane", None),
             create_test_taint("node.kubernetes.io/exclude-from-external-load-balancers", None)
@@ -1194,40 +1172,45 @@ mod tests {
 
         let untainted_node = create_test_node("untainted", vec![]);
 
-        // Test filtering control plane taints
-        assert!(should_exclude_node_by_taint(&control_plane_node, &Some(vec!["node-role.kubernetes.io/control-plane".to_string()])));
-        assert!(!should_exclude_node_by_taint(&worker_node, &Some(vec!["node-role.kubernetes.io/control-plane".to_string()])));
-        assert!(!should_exclude_node_by_taint(&untainted_node, &Some(vec!["node-role.kubernetes.io/control-plane".to_string()])));
+        // Test including control plane nodes
+        assert!(should_include_node_by_taint(&control_plane_node, &vec!["node-role.kubernetes.io/control-plane".to_string()]));
+        assert!(!should_include_node_by_taint(&worker_node, &vec!["node-role.kubernetes.io/control-plane".to_string()]));
+        assert!(!should_include_node_by_taint(&untainted_node, &vec!["node-role.kubernetes.io/control-plane".to_string()]));
 
-        // Test filtering dedicated database nodes
-        assert!(should_exclude_node_by_taint(&worker_node, &Some(vec!["dedicated=database".to_string()])));
-        assert!(!should_exclude_node_by_taint(&control_plane_node, &Some(vec!["dedicated=database".to_string()])));
-        assert!(!should_exclude_node_by_taint(&untainted_node, &Some(vec!["dedicated=database".to_string()])));
+        // Test including dedicated database nodes
+        assert!(should_include_node_by_taint(&worker_node, &vec!["dedicated=database".to_string()]));
+        assert!(!should_include_node_by_taint(&control_plane_node, &vec!["dedicated=database".to_string()]));
+        assert!(!should_include_node_by_taint(&untainted_node, &vec!["dedicated=database".to_string()]));
+
+        // Test default behavior (only untainted nodes)
+        assert!(!should_include_node_by_taint(&control_plane_node, &vec![]));
+        assert!(!should_include_node_by_taint(&worker_node, &vec![]));
+        assert!(should_include_node_by_taint(&untainted_node, &vec![]));
     }
 
     #[test]
-    fn test_should_exclude_node_by_taint_edge_cases() {
+    fn test_should_include_node_by_taint_edge_cases() {
         // Test taint with no value
         let node_with_key_only = create_test_node("test-node", vec![
             create_test_taint("key", None)
         ]);
 
-        // Test empty string key - this is a special case, but let's ensure our logic handles it
+        // Test empty string key (edge case)
         let node_with_empty_key = create_test_node("test-node", vec![
             create_test_taint("", Some("value"))
         ]);
 
-        assert!(should_exclude_node_by_taint(&node_with_key_only, &Some(vec!["key".to_string()])));
+        assert!(should_include_node_by_taint(&node_with_key_only, &vec!["key".to_string()]));
 
         // Note: Empty key filtering may or may not work depending on Kubernetes API behavior
         // Let's just verify it doesn't crash and behaves consistently
-        let _result = should_exclude_node_by_taint(&node_with_empty_key, &Some(vec!["".to_string()]));
+        let _result = should_include_node_by_taint(&node_with_empty_key, &vec!["".to_string()]);
         // We don't assert a specific result since this is an edge case that may vary
     }
 
     #[test]
-    fn test_should_exclude_node_by_taint_any_taint_name() {
-        // Test that we can filter taints literally named "any"
+    fn test_should_include_node_by_taint_any_taint_name() {
+        // Test that we can include nodes with taints literally named "any"
         let node_with_any_taint = create_test_node("test-node", vec![
             create_test_taint("any", Some("value"))
         ]);
@@ -1238,9 +1221,14 @@ mod tests {
 
         let node_with_no_taints = create_test_node("test-node", vec![]);
 
-        // Should be able to filter taints literally named "any"
-        assert!(should_exclude_node_by_taint(&node_with_any_taint, &Some(vec!["any".to_string()])));
-        assert!(!should_exclude_node_by_taint(&node_with_other_taint, &Some(vec!["any".to_string()])));
-        assert!(!should_exclude_node_by_taint(&node_with_no_taints, &Some(vec!["any".to_string()])));
+        // Should be able to include nodes with taints named "any"
+        assert!(should_include_node_by_taint(&node_with_any_taint, &vec!["any".to_string()]));
+        assert!(!should_include_node_by_taint(&node_with_other_taint, &vec!["any".to_string()]));
+        assert!(!should_include_node_by_taint(&node_with_no_taints, &vec!["any".to_string()]));
+
+        // Default behavior should not include any nodes with taints
+        assert!(!should_include_node_by_taint(&node_with_any_taint, &vec![]));
+        assert!(!should_include_node_by_taint(&node_with_other_taint, &vec![]));
+        assert!(should_include_node_by_taint(&node_with_no_taints, &vec![]));
     }
 }
