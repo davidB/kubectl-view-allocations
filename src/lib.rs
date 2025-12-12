@@ -202,18 +202,69 @@ fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
     resource_filter.is_empty() || resource_filter.iter().any(|x| name.contains(x))
 }
 
+fn should_exclude_node_by_taint(node: &Node, exclude_taints: &[String]) -> bool {
+    if exclude_taints.is_empty() {
+        return false;
+    }
+
+    let taints = node.spec.as_ref()
+        .and_then(|spec| spec.taints.as_ref())
+        .map(|taints| taints.as_slice())
+        .unwrap_or(&[]);
+
+    // If node has no taints and we want to exclude nodes with "any" taints
+    if taints.is_empty() && exclude_taints.contains(&"any".to_string()) {
+        return false; // Don't exclude nodes without taints when excluding "any"
+    }
+
+    // Check if any of the exclude patterns match
+    for exclude_pattern in exclude_taints {
+        if exclude_pattern == "any" && !taints.is_empty() {
+            // Exclude if node has any taints and we're excluding "any"
+            return true;
+        }
+
+        // Check for exact matches or partial matches
+        for taint in taints {
+            let taint_key = taint.key.as_str();
+            let taint_value = taint.value.as_ref().map(|s| s.as_str());
+
+            if exclude_pattern == taint_key {
+                return true;
+            }
+
+            // Check for key=value pattern
+            if let Some(eq_pos) = exclude_pattern.find('=') {
+                let pattern_key = &exclude_pattern[..eq_pos];
+                let pattern_value = &exclude_pattern[eq_pos + 1..];
+
+                if pattern_key == taint_key {
+                    if let Some(value) = taint_value {
+                        if pattern_value == value {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    false
+}
+
 #[instrument(skip(client, resources))]
 pub async fn collect_from_nodes(
     client: kube::Client,
     resources: &mut Vec<Resource>,
     selector: &Option<String>,
+    exclude_taints: &[String],
 ) -> Result<Vec<String>, Error> {
     let api_nodes: Api<Node> = Api::all(client);
     let mut lp = ListParams::default();
     if let Some(labels) = &selector {
         lp = lp.labels(labels);
     }
-    let nodes = api_nodes
+    let all_nodes = api_nodes
         .list(&lp)
         .await
         .map_err(|source| Error::KubeError {
@@ -221,11 +272,18 @@ pub async fn collect_from_nodes(
             source,
         })?
         .items;
-    let node_names = nodes
+
+    // Filter nodes by taints
+    let filtered_nodes: Vec<Node> = all_nodes
+        .into_iter()
+        .filter(|node| !should_exclude_node_by_taint(node, exclude_taints))
+        .collect();
+
+    let node_names = filtered_nodes
         .iter()
         .filter_map(|node| node.metadata.name.clone())
         .collect();
-    extract_allocatable_from_nodes(nodes, resources).await?;
+    extract_allocatable_from_nodes(filtered_nodes, resources).await?;
     Ok(node_names)
 }
 
@@ -643,6 +701,10 @@ pub struct CliOpts {
     #[arg(short = 'l', long, value_parser)]
     pub selector: Option<String>,
 
+    /// Exclude nodes with taints matching the specified pattern (comma-separated list, use 'any' to exclude all nodes with taints)
+    #[arg(long, value_parser, value_delimiter = ',', num_args = 1..)]
+    pub exclude_taints: Vec<String>,
+
     /// Force to retrieve utilization (for cpu and memory), requires
     /// having metrics-server https://github.com/kubernetes-sigs/metrics-server
     #[arg(short = 'u', long, value_parser)]
@@ -773,7 +835,7 @@ pub async fn new_client(cli_opts: &CliOpts) -> Result<kube::Client, Error> {
 pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
     let client = new_client(cli_opts).await?;
     let mut resources: Vec<Resource> = vec![];
-    let node_names = collect_from_nodes(client.clone(), &mut resources, &cli_opts.selector).await?;
+    let node_names = collect_from_nodes(client.clone(), &mut resources, &cli_opts.selector, &cli_opts.exclude_taints).await?;
     collect_from_pods(
         client.clone(),
         &mut resources,
