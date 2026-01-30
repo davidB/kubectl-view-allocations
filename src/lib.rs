@@ -225,7 +225,7 @@ fn should_include_node_by_taint(node: &Node, ignore_taints: &Option<Vec<String>>
             // Check if any of the node's taints should be ignored
             for taint in taints {
                 let taint_key = taint.key.as_str();
-                let taint_value = taint.value.as_ref().map(|s| s.as_str());
+                let taint_value = taint.value.as_deref();
 
                 for ignore_pattern in patterns {
                     // Check for exact key match
@@ -238,12 +238,11 @@ fn should_include_node_by_taint(node: &Node, ignore_taints: &Option<Vec<String>>
                         let pattern_key = &ignore_pattern[..eq_pos];
                         let pattern_value = &ignore_pattern[eq_pos + 1..];
 
-                        if pattern_key == taint_key {
-                            if let Some(value) = taint_value {
-                                if pattern_value == value {
-                                    return true;
-                                }
-                            }
+                        if pattern_key == taint_key
+                            && let Some(value) = taint_value
+                            && pattern_value == value
+                        {
+                            return true;
                         }
                     }
                 }
