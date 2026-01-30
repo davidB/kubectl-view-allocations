@@ -75,6 +75,8 @@ Options:
           Filter pods by namespace(s), by default pods in all namespaces are listed (comma separated list or multiple calls)
   -l, --selector <SELECTOR>
           Show only nodes match this label selector
+      --ignore-taints <IGNORE_TAINTS>...
+          Ignore nodes with specific taints; when not specified, only nodes without taints are shown; when used without values, show all nodes (comma-separated list)
   -u, --utilization
           Force to retrieve utilization (for cpu and memory), requires having metrics-server https://github.com/kubernetes-sigs/metrics-server
   -z, --show-zero
@@ -213,6 +215,36 @@ Date,Kind,resource,Requested,%Requested,Limit,%Limit,Allocatable,Free
 2020-08-19T19:11:49.630864028+00:00,resource,nvidia.com/gpu,3.00,27%,3.00,27%,11.00,8.00
 2020-08-19T19:11:49.630864028+00:00,resource,pods,0.00,0%,0.00,0%,1540.00,1540.00
 ```
+
+### Filter by Node Taints
+
+By default, `kubectl-view-allocations` only shows nodes without taints (workload nodes). The `--ignore-taints` option allows you to control which nodes are included based on their taints.
+
+```sh
+# Default: Only show nodes without taints (workload nodes)
+kubectl-view-allocations
+
+# Ignore all taints and show all nodes (including control-plane)
+kubectl-view-allocations --ignore-taints
+
+# Show untainted nodes + nodes with specific taints (ignore these taints)
+kubectl-view-allocations --ignore-taints node-role.kubernetes.io/control-plane
+
+# Show untainted nodes + nodes with specific taint key-value pairs
+kubectl-view-allocations --ignore-taints dedicated=database
+
+# Ignore multiple taint patterns
+kubectl-view-allocations --ignore-taints node-role.kubernetes.io/control-plane,dedicated=database
+
+# Combine with label selector
+kubectl-view-allocations -l environment=production --ignore-taints dedicated=database
+```
+
+**Use cases:**
+- **Default behavior**: Show only workload nodes (nodes without taints) for typical application resource allocation
+- **Complete overview**: Use `--ignore-taints` without values to see all nodes in the cluster, including control-plane and specialized nodes
+- **Include control-plane**: Use `--ignore-taints node-role.kubernetes.io/control-plane` to see workload + control-plane nodes
+- **Include specialized nodes**: Use `--ignore-taints dedicated,workload` to include dedicated or workload-specific nodes alongside regular workload nodes
 
 ## Alternatives & Similars
 
