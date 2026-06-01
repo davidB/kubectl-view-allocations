@@ -53,7 +53,7 @@ If your AI coding tool supports [skills.sh](https://skills.sh), install the
 npx skills add davidB/kubectl-view-allocations
 ```
 
-This installs the assistant workflow for using `kubectl-view_allocations`; it
+This installs the assistant workflow for using `kubectl view-allocations`; it
 does not install the `kubectl-view-allocations` binary itself.
 
 ### As lib in Cargo.toml
