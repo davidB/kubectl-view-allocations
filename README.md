@@ -44,6 +44,18 @@ kubectl krew install view-allocations
 cargo install kubectl-view-allocations
 ```
 
+### As an AI coding skill
+
+If your AI coding tool supports [skills.sh](https://skills.sh), install the
+`kubectl-view-allocations` skill with:
+
+```sh
+npx skills add davidB/kubectl-view-allocations
+```
+
+This installs the assistant workflow for using `kubectl view-allocations`; it
+does not install the `kubectl-view-allocations` binary itself.
+
 ### As lib in Cargo.toml
 
 If you want to embed some function or struct of the plugin into an other rust code:

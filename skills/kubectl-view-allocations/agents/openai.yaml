@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kubectl View Allocations"
+c  short_description: "Inspect allocations with kubectl view-allocations"
+  default_prompt: "Use $kubectl-view-allocations to inspect Kubernetes CPU, memory, GPU, pod, and taint-filtered allocations with kubectl view-allocations."
