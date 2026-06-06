@@ -39,6 +39,14 @@ alias = "fmt"
 description = "Format the code"
 run = "cargo fmt"
 
+[tasks.autofix]
+description = "Automatically fix some linting issues & format code"
+depends_post = ["format"]
+run = [
+  "cargo fix --allow-dirty --workspace --all-features --all-targets --profile test",
+  "cargo clippy --fix --allow-dirty --workspace --all-features --all-targets --no-deps --profile test",
+]
+
 # CI Flow tasks
 [tasks.ci]
 description = "Main CI flow - format, check, test, clippy"
