@@ -55,7 +55,7 @@ pub fn parse_sort_spec(s: &str) -> Result<Vec<SortColumn>, Error> {
         .collect()
 }
 
-pub fn effective_sort_spec(spec: &[SortColumn], show_utilization: bool) -> Vec<SortColumn> {
+pub(crate) fn effective_sort_spec(spec: &[SortColumn], show_utilization: bool) -> Vec<SortColumn> {
     spec.iter()
         .filter(|col| show_utilization || col.column != SortColumnName::Usage)
         .cloned()
@@ -98,7 +98,7 @@ fn compare_nodes_by(a: &TableNode, b: &TableNode, col: &SortColumn) -> std::cmp:
     }
 }
 
-pub fn sort_children_recursive(
+pub(crate) fn sort_children_recursive(
     nodes: &mut Vec<TableNode>,
     indices: &mut [usize],
     depth: usize,
@@ -130,7 +130,7 @@ pub fn sort_children_recursive(
     }
 }
 
-pub fn flatten_tree(
+pub(crate) fn flatten_tree(
     nodes: &[TableNode],
     indices: &[usize],
 ) -> Vec<(Vec<String>, Option<QtyByQualifier>, Option<Qty>)> {

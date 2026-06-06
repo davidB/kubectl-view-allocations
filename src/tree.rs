@@ -1,45 +1,6 @@
 //! module to make tree-table or tree from a list,
 //! by computing the string prefix that contains line of to link item of the list
 //! like a tree (multi-root)
-//!
-//! ```rust
-//! use kubectl_view_allocations::tree::provide_prefix;
-//!
-//! let items = vec![
-//!     "1/2",
-//!     "1/2/3",
-//!     "1/2/3/4",
-//!     "1/2/5",
-//!     "6",
-//!     "7",
-//!     "7/8",
-//!     "7/9",
-//! ];
-//!
-//! let prefixes = provide_prefix(&items, |parent, item| {
-//!     let pi = item.split("/");
-//!     let pp = parent.split("/");
-//!     (pi.count() == pp.count() + 1) && item.starts_with(parent)
-//! });
-//!
-//! let mut actual = String::new();
-//! prefixes.iter().zip(items).for_each(|(p, i)|
-//!     actual.push_str(&format!("{} {}\n", p, i))
-//! );
-//!
-//! let expected = r#" 1/2
-//!  ├─ 1/2/3
-//!  │  └─ 1/2/3/4
-//!  └─ 1/2/5
-//!  6
-//!  7
-//!  ├─ 7/8
-//!  └─ 7/9
-//! "#;
-//! //dbg!(&actual);
-//! assert_eq!(actual, expected);
-//! ```
-//!
 
 #[derive(Debug, Clone)]
 struct TreeNode {
@@ -119,7 +80,7 @@ where
 /// - output as the same number of element than input `items`
 /// - output can be zipped with input ìtems
 /// - is_parent_of(maybe_parent, item)
-pub fn provide_prefix<I, F>(items: &[I], is_parent_of: F) -> Vec<String>
+pub(crate) fn provide_prefix<I, F>(items: &[I], is_parent_of: F) -> Vec<String>
 where
     F: Fn(&I, &I) -> bool,
 {

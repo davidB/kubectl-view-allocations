@@ -1,20 +1,14 @@
-pub mod collect;
-pub mod display;
-pub mod metrics;
+mod collect;
+mod display;
+mod metrics;
 pub mod qty;
-pub mod sort;
-pub mod tree;
+mod sort;
+mod tree;
 
-pub use collect::{
-    collect_from_metrics, collect_from_nodes, collect_from_pods, extract_allocatable_from_nodes,
-    extract_allocatable_from_pods, extract_locations, extract_utilizations_from_pod_metrics,
-    is_scheduled, should_include_node_by_taint,
-};
+pub use collect::{collect_from_metrics, collect_from_nodes, collect_from_pods};
 pub use display::{display_as_csv, display_with_prettytable};
-pub use sort::{
-    SortColumn, SortColumnName, SortDirection, effective_sort_spec, flatten_tree, parse_sort_spec,
-    sort_children_recursive,
-};
+pub use sort::{SortColumn, SortColumnName, SortDirection, parse_sort_spec};
+use sort::{effective_sort_spec, flatten_tree, sort_children_recursive};
 
 use clap::{Parser, ValueEnum};
 use core::convert::TryFrom;
@@ -72,6 +66,7 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct Location {
     pub node_name: String,
     pub namespace: Option<String>,
@@ -79,6 +74,7 @@ pub struct Location {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Resource {
     pub kind: String,
     pub quantity: Qty,
@@ -87,6 +83,7 @@ pub struct Resource {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum ResourceQualifier {
     Limit,
     Requested,
@@ -97,6 +94,7 @@ pub enum ResourceQualifier {
 }
 
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct QtyByQualifier {
     pub limit: Option<Qty>,
     pub requested: Option<Qty>,
@@ -127,15 +125,16 @@ impl QtyByQualifier {
 }
 
 #[derive(Debug, Clone)]
-pub struct TableNode {
-    pub key: String,
-    pub path: Vec<String>,
-    pub quantities: Option<QtyByQualifier>,
-    pub free: Option<Qty>,
-    pub children: Vec<usize>,
+pub(crate) struct TableNode {
+    pub(crate) key: String,
+    pub(crate) path: Vec<String>,
+    pub(crate) quantities: Option<QtyByQualifier>,
+    pub(crate) free: Option<Qty>,
+    pub(crate) children: Vec<usize>,
 }
 
 #[derive(Debug, Eq, PartialEq, ValueEnum, Clone)]
+#[non_exhaustive]
 #[value(rename_all = "snake_case")]
 pub enum GroupBy {
     Resource,
@@ -188,6 +187,7 @@ impl std::fmt::Display for GroupBy {
 }
 
 #[derive(Debug, Eq, PartialEq, ValueEnum, Clone, Copy, Default)]
+#[non_exhaustive]
 #[value(rename_all = "snake_case")]
 pub enum Output {
     #[default]
@@ -196,6 +196,7 @@ pub enum Output {
 }
 
 #[derive(Debug, Eq, PartialEq, ValueEnum, Clone, Copy, Default)]
+#[non_exhaustive]
 #[value(rename_all = "snake_case")]
 pub enum UsedMode {
     #[default]
@@ -204,6 +205,7 @@ pub enum UsedMode {
 }
 
 #[derive(Parser, Debug)]
+#[non_exhaustive]
 #[command(
     version, about,
     after_help(env!("CARGO_PKG_HOMEPAGE")),
@@ -307,7 +309,7 @@ fn add(lhs: Option<Qty>, rhs: &Qty) -> Option<Qty> {
     lhs.map(|l| &l + rhs).or_else(|| Some(rhs.clone()))
 }
 
-pub fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
+fn sum_by_qualifier(rsrcs: &[&Resource]) -> Option<QtyByQualifier> {
     if !rsrcs.is_empty() {
         let kind = rsrcs
             .first()
@@ -409,11 +411,11 @@ fn make_group_x_qualifier(
     out_indices
 }
 
-pub fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
+fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
     resource_filter.is_empty() || resource_filter.iter().any(|x| name.contains(x))
 }
 
-pub async fn refresh_kube_config(cli_opts: &CliOpts) -> Result<(), Error> {
+pub(crate) async fn refresh_kube_config(cli_opts: &CliOpts) -> Result<(), Error> {
     // force refresh token by calling "kubectl cluster-info before loading configuration"
     use std::process::Command;
     let mut cmd = Command::new("kubectl");
@@ -547,6 +549,7 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collect::should_include_node_by_taint;
     use k8s_openapi::api::core::v1::{Node, NodeSpec, Taint};
 
     fn qty(s: &str) -> Qty {

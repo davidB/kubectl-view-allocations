@@ -43,7 +43,7 @@ pub async fn collect_from_nodes(
 
 #[allow(clippy::result_large_err)]
 #[instrument(skip(node_list, resources))]
-pub fn extract_allocatable_from_nodes(
+pub(crate) fn extract_allocatable_from_nodes(
     node_list: Vec<Node>,
     resources: &mut Vec<Resource>,
 ) -> Result<(), Error> {
@@ -74,7 +74,7 @@ pub fn extract_allocatable_from_nodes(
     Ok(())
 }
 
-pub fn is_scheduled(pod: &Pod) -> bool {
+pub(crate) fn is_scheduled(pod: &Pod) -> bool {
     pod.status
         .as_ref()
         .and_then(|ps| {
@@ -173,7 +173,7 @@ pub async fn collect_from_pods(
 
 #[allow(clippy::result_large_err)]
 #[instrument(skip(pod_list, resources))]
-pub fn extract_allocatable_from_pods(
+pub(crate) fn extract_allocatable_from_pods(
     pod_list: Vec<Pod>,
     resources: &mut Vec<Resource>,
     selected_node_names: &[String],
@@ -250,7 +250,7 @@ pub fn extract_allocatable_from_pods(
     Ok(())
 }
 
-pub fn extract_locations(
+pub(crate) fn extract_locations(
     resources: &[Resource],
 ) -> std::collections::HashMap<(String, String), Location> {
     resources
@@ -287,7 +287,7 @@ pub async fn collect_from_metrics(
 
 #[allow(clippy::result_large_err)]
 #[instrument(skip(pod_metrics, resources))]
-pub fn extract_utilizations_from_pod_metrics(
+pub(crate) fn extract_utilizations_from_pod_metrics(
     pod_metrics: ObjectList<crate::metrics::PodMetrics>,
     resources: &mut Vec<Resource>,
 ) -> Result<(), Error> {
@@ -343,7 +343,10 @@ pub fn extract_utilizations_from_pod_metrics(
     Ok(())
 }
 
-pub fn should_include_node_by_taint(node: &Node, ignore_taints: &Option<Vec<String>>) -> bool {
+pub(crate) fn should_include_node_by_taint(
+    node: &Node,
+    ignore_taints: &Option<Vec<String>>,
+) -> bool {
     let taints = node
         .spec
         .as_ref()

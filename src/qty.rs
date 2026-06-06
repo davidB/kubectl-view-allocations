@@ -19,7 +19,7 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
-pub struct Scale {
+pub(crate) struct Scale {
     label: &'static str,
     base: u32,
     pow: i32,
@@ -84,7 +84,7 @@ impl PartialOrd for Scale {
 }
 
 impl Scale {
-    pub fn min(&self, other: &Scale) -> Scale {
+    pub(crate) fn min(&self, other: &Scale) -> Scale {
         if self < other {
             self.clone()
         } else {
@@ -95,8 +95,8 @@ impl Scale {
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Qty {
-    pub value: i64,
-    pub scale: Scale,
+    pub(crate) value: i64,
+    pub(crate) scale: Scale,
 }
 
 impl From<&Qty> for f64 {
@@ -194,7 +194,7 @@ impl Ord for Qty {
     }
 }
 
-pub fn select_scale_for_add(v1: &Qty, v2: &Qty) -> Scale {
+pub(crate) fn select_scale_for_add(v1: &Qty, v2: &Qty) -> Scale {
     if v2.value == 0 {
         v1.scale.clone()
     } else if v1.value == 0 {
