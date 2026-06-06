@@ -74,7 +74,7 @@ jobs:
           - { target_platform: x86_64-apple-darwin,  imageName: macOS-latest }
           - { target_platform: aarch64-apple-darwin, imageName: macOS-latest }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
       - uses: mozilla-actions/sccache-action@v0.0.10
@@ -101,6 +101,9 @@ jobs:
     permissions:
       actions: write
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
       - run: gh workflow run krew-update.yaml --ref "$TAG"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
