@@ -94,15 +94,14 @@ jobs:
       - run: ${SCCACHE_PATH} --show-stats
         shell: bash
 
-  krew-update:
+  trigger-krew-update:
     needs: [release, build]
     if: needs.release.outputs.releases_created == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      actions: write
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.release.outputs.tag }}
-          fetch-depth: 0
-      - uses: rajatjindal/krew-release-bot@v0.0.51
+      - run: gh workflow run krew-update.yaml --ref "$TAG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
