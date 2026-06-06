@@ -17,9 +17,34 @@ conventional_commits = true
 filter_unconventional = false
 split_commits = false
 commit_preprocessors = [
-  { pattern = '^(\p{Emoji_Presentation}|\p{Emoji}️)\s*', replace = "" },
-  { pattern = '^:[a-z_]+:\s*', replace = "" },
-  { pattern = '^\(cargo-release\) version', replace = "chore: release version" },
+  # colon-style gitmoji → conventional
+  { pattern = '^:rocket:\s*\(cargo-release\)\s*', replace = "chore(release): " },
+  { pattern = '^:rocket:\s*', replace = "chore(release): " },
+  { pattern = '^:arrow_up:\s*', replace = "chore(deps): " },
+  { pattern = '^:construction:\s*\(cargo-release\)\s*', replace = "chore(release): " },
+  { pattern = '^:construction:\s*', replace = "chore: " },
+  # unicode gitmoji → conventional
+  { pattern = '^🚀\s*\(cargo-release\)\s*', replace = "chore(release): " },
+  { pattern = '^🚀\s*', replace = "chore(release): " },
+  { pattern = '^✨\s*', replace = "feat: " },
+  { pattern = '^🐛\s*', replace = "fix: " },
+  { pattern = '^📝\s*', replace = "docs: " },
+  { pattern = '^👷\s*', replace = "ci: " },
+  { pattern = '^🎨\s*', replace = "style: " },
+  { pattern = '^💄\s*', replace = "style: " },
+  { pattern = '^♻️\s*', replace = "refactor: " },
+  { pattern = '^⬆️\s*', replace = "chore(deps): " },
+  { pattern = '^⬆\s*', replace = "chore(deps): " },
+  { pattern = '^➖\s*', replace = "chore(deps): " },
+  { pattern = '^🚨\s*', replace = "fix: " },
+  { pattern = '^👽️?\s*', replace = "fix: " },
+  { pattern = '^🍱\s*', replace = "chore: " },
+  { pattern = '^⚗️?\s*', replace = "chore: " },
+  { pattern = '^💥\s*', replace = "feat!: " },
+  # bare cargo-release pattern (no emoji prefix)
+  { pattern = '^\(cargo-release\) version', replace = "chore(release): version" },
+  # Dependabot bare "Bump X from Y to Z" → chore(deps)
+  { pattern = '^Bump ', replace = "chore(deps): bump " },
 ]
 commit_parsers = [
   { message = "^feat", group = "Features" },
@@ -28,6 +53,7 @@ commit_parsers = [
   { message = "^refactor", group = "Refactoring" },
   { message = "^docs?", group = "Documentation" },
   { message = "^chore\\(deps\\)", group = "Dependencies" },
+  { message = "^fix\\(deps\\)", group = "Dependencies" },
   { message = "^chore|^build|^ci", skip = true },
   { message = "^style|^test", skip = true },
   { body = ".*security", group = "Security" },
