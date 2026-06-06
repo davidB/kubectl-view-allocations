@@ -3,6 +3,32 @@
 <a name="x.y.z-dev" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
 ## Version x.y.z-dev
 
+<a name="1.1.1" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
+## Version 1.1.1
+
+<a name="1.1.0" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
+## Version 1.1.0
+
+<a name="1.0.0" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
+## Version 1.0.0
+
+### Changed
+- ⬆️  Bump kube from 1.1.0 to 2.0.1
+- ⬆️  Bump chrono from 0.4.41 to 0.4.42
+- ⬆️  Bump serde_json from 1.0.143 to 1.0.145
+
+<a name="0.23.4" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
+## Version 0.23.4
+
+<a name="0.23.3" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
+## Version 0.23.3
+
+<a name="0.23.2" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
+## Version 0.23.2
+
+<a name="0.23.1" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
+## Version 0.23.1
+
 <a name="0.23.0" data-comment="this line is used by gitmoji-changelog, don't remove it!"></a>
 ## Version 0.23.0
 

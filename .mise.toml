@@ -16,6 +16,8 @@ kind = "0.20"
 rust = { version = "1.96.0", profile = "minimal", components = "cargo,rustfmt,clippy" }  # the rust tool stack (with cargo, fmt, clippy) to build source
 jq = "latest"
 "cargo:cross" = "latest"
+"github:release-plz/release-plz" = "latest"
+"github:orhun/git-cliff" = "latest"
 
 [tasks.clean]
 description = "Clean build artifacts"
@@ -103,42 +105,10 @@ if [ -n "$GITHUB_OUTPUT" ]; then
 fi
 """
 
-# Documentation tasks
-[tasks.update-changelog]
-description = "Update changelog using gitmoji-changelog"
-run = """
-if ! command -v gitmoji-changelog &> /dev/null; then
-    echo "Installing gitmoji-changelog..."
-    cargo install gitmoji-changelog
-fi
-rm -rf CHANGELOG.md
-gitmoji-changelog -r x.y.z-dev -o CHANGELOG.md .
-"""
-
-[tasks.update-bom]
-description = "Update Bill of Materials"
-run = """
-if ! cargo bom --help &> /dev/null; then
-    echo "Installing cargo-bom..."
-    cargo install cargo-bom
-fi
-cargo bom > BOM.txt
-"""
-
-[tasks.update-docs]
-description = "Update all documentation"
-depends = ["update-changelog", "update-bom"]
-
-[tasks.publish]
-description = "Publish to crates.io"
-# depends = ["update-docs"]
-run = """
-if ! command -v cargo-release &> /dev/null; then
-    echo "Installing cargo-release..."
-    cargo install cargo-release
-fi
-cargo release --execute {{option(name="level", default="minor")}}
-"""
+# Release tasks
+[tasks.release-pr]
+description = "Create/update release PR via release-plz"
+run = "release-plz update"
 
 # Debug task
 [tasks.debug]

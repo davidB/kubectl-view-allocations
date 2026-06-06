@@ -1,0 +1,7 @@
+[workspace]
+changelog_update = true
+git_release_enable = false
+publish = true
+changelog_config = "cliff.toml"
+git_tag_enable = true
+git_tag_name = "{{ version }}"

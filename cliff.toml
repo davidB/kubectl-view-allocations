@@ -1,0 +1,41 @@
+[changelog]
+header = "# Changelog\n\n"
+body = """
+{% if version %}## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}{% else %}## [Unreleased]{% endif %}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {% if commit.breaking %}[**breaking**] {% endif %}{{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/davidB/kubectl-view-allocations/commit/{{ commit.id }}))\
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+commit_preprocessors = [
+  { pattern = '^(\p{Emoji_Presentation}|\p{Emoji}️)\s*', replace = "" },
+  { pattern = '^:[a-z_]+:\s*', replace = "" },
+  { pattern = '^\(cargo-release\) version', replace = "chore: release version" },
+]
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactoring" },
+  { message = "^docs?", group = "Documentation" },
+  { message = "^chore\\(deps\\)", group = "Dependencies" },
+  { message = "^chore|^build|^ci", skip = true },
+  { message = "^style|^test", skip = true },
+  { body = ".*security", group = "Security" },
+]
+protect_breaking_commits = false
+filter_commits = false
+tag_pattern = "[0-9]+\\.[0-9]+\\.[0-9]+"
+skip_tags = ""
+ignore_tags = ""
+topo_order = false
+sort_commits = "newest"

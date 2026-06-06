@@ -1,0 +1,98 @@
+name: release-plz
+on:
+  push:
+    branches: [master]
+
+env:
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: mozilla-actions/sccache-action@v0.0.10
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: release-plz/action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+      tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: mozilla-actions/sccache-action@v0.0.10
+      - uses: dtolnay/rust-toolchain@stable
+      - id: release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - id: tag
+        if: steps.release-plz.outputs.releases_created == 'true'
+        env:
+          RELEASES: ${{ steps.release-plz.outputs.releases }}
+        run: echo "value=$(echo "$RELEASES" | jq -r '.[0].tag')" >> $GITHUB_OUTPUT
+
+  build:
+    needs: release
+    if: needs.release.outputs.releases_created == 'true'
+    runs-on: ${{ matrix.os.imageName }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        os:
+          - { target_platform: x86_64-unknown-linux-gnu,  imageName: ubuntu-latest, cross: "true" }
+          - { target_platform: x86_64-unknown-linux-musl, imageName: ubuntu-latest, cross: "true" }
+          - { target_platform: aarch64-unknown-linux-musl, imageName: ubuntu-latest, cross: "true" }
+          - { target_platform: x86_64-apple-darwin,  imageName: macOS-latest }
+          - { target_platform: aarch64-apple-darwin, imageName: macOS-latest }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: mozilla-actions/sccache-action@v0.0.10
+      - uses: jdx/mise-action@v4
+      - id: zip-release-ci-flow
+        run: mise run zip-release-ci-flow
+        env:
+          TARGET: ${{ matrix.os.target_platform }}
+          CROSS: ${{ matrix.os.cross }}
+      - uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ steps.zip-release-ci-flow.outputs.dist_file_path }}
+          tag: ${{ steps.zip-release-ci-flow.outputs.dist_version }}
+          prerelease: false
+          overwrite: true
+      - run: ${SCCACHE_PATH} --show-stats
+        shell: bash
+
+  krew-update:
+    needs: [release, build]
+    if: needs.release.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: rajatjindal/krew-release-bot@v0.0.51
