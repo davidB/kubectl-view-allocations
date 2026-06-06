@@ -1,13 +1,19 @@
 ---
 name: kubectl-view-allocations
-description: "Use when inspecting Kubernetes resource allocation with kubectl view-allocations. For allocation questions, use kubectl view-allocations first and do not replace it with native kubectl get/describe/top/jsonpath queries. Covers cluster/node/namespace/pod requests, limits, allocatable, free capacity, GPU or custom resources, taint-filtered node views, CSV exports, metrics-server utilization via kubectl view-allocations -u, kubeconfig/context access checks, and allocation-focused troubleshooting. Trigger for CPU, memory, GPU, pod capacity, overcommit, missing requests/limits, tainted nodes, or comparing requested/limit/utilization data in a Kubernetes cluster."
+description: "Use when inspecting Kubernetes resource allocation with kubectl view-allocations. For allocation questions, use kubectl view-allocations first and do not replace it with native kubectl get/describe/top/jsonpath queries. Covers cluster/node/namespace/pod requests, limits, allocatable, free capacity, ALL resources including GPU and custom resources (not just CPU/memory), taint-filtered node views, tree-view grouping via -g, multi-column sort via --sort, CSV exports, metrics-server utilization via kubectl view-allocations -u, kubeconfig/context access checks, and allocation-focused troubleshooting. Trigger for CPU, memory, GPU, pod capacity, overcommit, missing requests/limits, tainted nodes, or comparing requested/limit/utilization data in a Kubernetes cluster. WARNING: default output excludes tainted nodes — results may be empty or partial on clusters where all nodes have taints (e.g. control-plane-only, GPU, dedicated workload nodes)."
 ---
 
 # Kubectl View Allocations
 
 Use `kubectl view-allocations` as the required first tool for this repository's allocation workflow. Do not answer allocation questions by reconstructing the same data with native `kubectl get`, `kubectl describe`, `kubectl top`, JSONPath, or ad hoc scripts unless `kubectl view-allocations` cannot run and the user accepts a fallback.
 
-`kubectl view-allocations` reports Kubernetes allocations from manifests and node allocatable resources; it is not a replacement for `kubectl top`, except when `-u/--utilization` is explicitly requested and Metrics API is available.
+`kubectl view-allocations` reports Kubernetes allocations from manifests and node allocatable resources. Key differentiators over `kubectl top` and similar tools:
+
+- **All resources**: cpu, memory, GPU, and any custom resource — not limited to cpu/memory
+- **Tree view**: group and aggregate by resource, node, namespace, or pod in any combination via `-g`
+- **Live utilization**: optional via `-u` (requires metrics-server), same as `kubectl top` but richer
+
+> **Default taint filtering**: only nodes *without* taints are shown. On clusters where all nodes carry taints (control-plane-only, GPU nodes, dedicated workloads), the output may be empty or partial. Use `--ignore-taints` to include tainted nodes.
 
 ## Workflow
 
@@ -54,6 +60,12 @@ kubectl view-allocations -r gpu
 kubectl view-allocations --ignore-taints -g resource,node
 kubectl view-allocations -u -r cpu,memory
 kubectl view-allocations -o csv -g resource,node,pod
+# Sort: show most-requested resources first (default)
+kubectl view-allocations -s "requested DESC"
+# Sort by free capacity ascending (find most constrained nodes first)
+kubectl view-allocations -g resource,node -s "free ASC"
+# Multi-column sort
+kubectl view-allocations -s "usage DESC, requested DESC"
 ```
 
 Add `--context CONTEXT` and `--kubeconfig PATH` when the user names a cluster or config file. Use `--precheck` when kube auth tokens may need refreshing because it runs `kubectl cluster-info` first.
@@ -69,7 +81,9 @@ Read `references/command-cookbook.md` for command recipes, interpretation notes,
 - `Utilization`: live CPU/memory usage from Metrics API, shown only with `-u`.
 - `__`: value is absent or not meaningful at that grouping level, not necessarily zero.
 
-Default grouping is `resource,node,pod`; `resource` is always prepended when omitted. Default node filtering excludes tainted nodes. Use `--ignore-taints` with no value to include all nodes, or with taint keys/key-value pairs to include specific tainted nodes.
+Default grouping is `resource,node,pod`; `resource` is always prepended when omitted. Default node filtering excludes tainted nodes — **if output is empty or missing nodes, try `--ignore-taints`**. Use `--ignore-taints` with no value to include all nodes, or with taint keys/key-value pairs to include specific tainted nodes.
+
+`--sort` / `-s` accepts SQL-like syntax: `col [ASC|DESC]`, comma-separated for multi-column. Valid columns: `usage`/`utilization`, `requested`, `limits`/`limit`, `allocatable`, `free`, `name`. Default: `"usage DESC, requested DESC, limits DESC, name ASC"`. Sort applies within sibling groups at each tree level.
 
 ## Safety
 

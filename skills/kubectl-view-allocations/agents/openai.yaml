@@ -1,4 +1,4 @@
 interface:
   display_name: "Kubectl View Allocations"
-c  short_description: "Inspect allocations with kubectl view-allocations"
-  default_prompt: "Use $kubectl-view-allocations to inspect Kubernetes CPU, memory, GPU, pod, and taint-filtered allocations with kubectl view-allocations."
+  short_description: "Inspect allocations with kubectl view-allocations"
+  default_prompt: "Use $kubectl-view-allocations to inspect Kubernetes allocations (all resources: CPU, memory, GPU, custom) with kubectl view-allocations. Supports tree-view grouping via -g, multi-column sort via --sort, live utilization via -u, and taint-filtered node views. Note: default output excludes tainted nodes — use --ignore-taints if results look empty or partial."

@@ -1,123 +1,91 @@
 # kubectl-view-allocations
 
-[![Crates.io](https://img.shields.io/crates/l/kubectl-view-allocations.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
+[![license](https://img.shields.io/crates/l/kubectl-view-allocations.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
 [![Crates.io](https://img.shields.io/crates/v/kubectl-view-allocations.svg)](https://crates.io/crates/kubectl-view-allocations)
-
-[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
+[![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Actions Status](https://github.com/davidB/kubectl-view-allocations/workflows/ci-flow/badge.svg)](https://github.com/davidB/kubectl-view-allocations/actions)
 [![Documentation](https://docs.rs/kubectl-view-allocations/badge.svg)](https://docs.rs/kubectl-view-allocations/)
-
 [![Crates.io](https://img.shields.io/crates/d/kubectl-view-allocations.svg)](https://crates.io/crates/kubectl-view-allocations)
 ![GitHub All Releases](https://img.shields.io/github/downloads/davidB/kubectl-view-allocations/total.svg)
 
-`kubectl` plugin lists allocations for resources (cpu, memory, gpu,...) as defined into the manifest of nodes and running pods. It doesn't list usage like `kubectl top`. It can provide result grouped by namespaces, nodes, pods and filtered by resources'name.
+`kubectl` plugin for visualizing resource allocations across your cluster. Key differentiators:
 
-Columns displayed :
+- **All resources** — cpu, memory, gpu, and any custom resource; not limited to cpu/memory like most tools
+- **Tree view** — group and aggregate by resource, node, namespace, or pod in any combination via `-g`
+- **Full picture** — requested, limit, allocatable, free, and optionally live utilization (`-u`, requires metrics-server)
 
-- `Requested` : Quantity of resources requested by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running. With percentage of resources requested over what is allocatable in the group.
-- `Limit` : Quantity of resources max (limit) requestable by the container in the pod's manifest. It's the sum group by pod, namespace, node where container is running. With percentage of resources max / limit over what is allocatable in the group.
-- `Allocatable` : Allocatable resources defined (or detected) on nodes.
-- `Free` : `Allocatable - max (Limit, Requested)` (by default, see options `--used-mode`)
-- `Utilization` : Quantity of resources (cpu & memory only) used as reported by Metrics API. It's disable by default, [metrics-server](https://github.com/kubernetes-incubator/metrics-server) is optional and should be setup into the cluster.
+```sh
+kubectl view-allocations -u
+```
 
 ![screenshot](./Screenshot-20260606_1213.png)
 
+> **Note:** By default only nodes *without* taints are shown. If results look empty or incomplete, use `--ignore-taints` to include control-plane or tainted nodes — see [Filter by Node Taints](#filter-by-node-taints).
+
+| Column | Description |
+|---|---|
+| `Requested` | Resources requested by containers in pod manifests, summed by pod/namespace/node. Includes percentage of the group's allocatable total. |
+| `Limit` | Max resources (limit) set in pod manifests, summed by pod/namespace/node. Includes percentage of the group's allocatable total. |
+| `Allocatable` | Allocatable resources defined (or detected) on nodes. |
+| `Free` | `Allocatable - max(Limit, Requested)` by default — see `--used-mode` to change this. |
+| `Utilization` | Actual cpu/memory usage from the Metrics API. Disabled by default; requires [metrics-server](https://github.com/kubernetes-incubator/metrics-server) on the cluster. |
+
+## Table of Contents
+
+- [Install](#install) — krew · mise · binary · cargo
+- [Usage](#usage)
+  - [Overview only](#overview-only)
+  - [Show GPU allocation](#show-gpu-allocation)
+  - [Show utilization](#show-utilization)
+  - [Group by namespaces](#group-by-namespaces)
+  - [Show as CSV](#show-as-csv)
+  - [Filter by node taints](#filter-by-node-taints)
+  - [Full option reference](#full-option-reference)
+- [Alternatives](#alternatives)
+- [Sponsors](#sponsors)
+
 ## Install
 
-### Via download binary
+**Recommended:** [krew](https://krew.sigs.k8s.io/) is the easiest way to install and keep the plugin up to date.
 
-Download from [github's release](https://github.com/davidB/kubectl-view-allocations/releases/latest) or use script
-
-```sh
-curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/scripts/getLatest.sh | bash
-```
-
-### Via krew (kubectl plugin manager)
-
-[Krew – kubectl plugin manager](https://krew.sigs.k8s.io/)
-
+**krew**
 ```sh
 kubectl krew install view-allocations
 ```
 
-### Via cargo
+**mise** (GitHub releases backend)
+```sh
+mise use -g github:davidB/kubectl-view-allocations
+```
 
+**binary** — download from [GitHub releases](https://github.com/davidB/kubectl-view-allocations/releases/latest) or via script:
+```sh
+curl https://raw.githubusercontent.com/davidB/kubectl-view-allocations/master/scripts/getLatest.sh | bash
+```
+
+**cargo**
 ```sh
 cargo install kubectl-view-allocations
 ```
 
-### As an AI coding skill
-
-If your AI coding tool supports [skills.sh](https://skills.sh), install the
-`kubectl-view-allocations` skill with:
-
-```sh
-npx skills add davidB/kubectl-view-allocations
-```
-
-This installs the assistant workflow for using `kubectl view-allocations`; it
-does not install the `kubectl-view-allocations` binary itself.
-
-### As lib in Cargo.toml
-
-If you want to embed some function or struct of the plugin into an other rust code:
-
-```toml
-[dependencies]
-kubectl-view-allocations = { version = "0.14", default-features = false }
-
-[features]
-default = ["k8s-openapi/v1_20"]
-```
-
 ## Usage
 
-### Show help
+All examples use `kubectl-view-allocations` directly; if installed via krew, substitute `kubectl view-allocations`.
+
+### Overview only
 
 ```sh
-> kubectl-view-allocations -h
-kubectl plugin to list allocations (cpu, memory, gpu,...) X (utilization, requested, limit, allocatable,...)
+> kubectl-view-allocations -g resource
 
-Usage: kubectl-view-allocations [OPTIONS]
-
-Options:
-      --kubeconfig <KUBECONFIG>
-          Path to the kubeconfig file to use for requests to kubernetes cluster
-      --context <CONTEXT>
-          The name of the kubeconfig context to use
-  -n, --namespace <NAMESPACE>...
-          Filter pods by namespace(s), by default pods in all namespaces are listed (comma separated list or multiple calls)
-  -l, --selector <SELECTOR>
-          Show only nodes match this label selector
-      --ignore-taints [<IGNORE_TAINTS>...]
-          Ignore nodes with specific taints; when not specified, only nodes without taints are shown; when used without values, show all nodes (comma-separated list)
-  -u, --utilization
-          Force to retrieve utilization (for cpu and memory), requires having metrics-server https://github.com/kubernetes-sigs/metrics-server
-  -z, --show-zero
-          Show lines with zero requested AND zero limit AND zero allocatable, OR pods with unset requested AND limit for `cpu` and `memory`
-      --used-mode <USED_MODE>
-          The way to compute the `used` part for free (`allocatable - used`) [default: max-request-limit] [possible values: max-request-limit, only-request]
-      --precheck
-          Pre-check access and refresh token on kubeconfig by running `kubectl cluster-info`
-      --accept-invalid-certs
-          Accept invalid certificates (dangerous)
-  -r, --resource-name <RESOURCE_NAME>...
-          Filter resources shown by name(s), by default all resources are listed (comma separated list or multiple calls)
-  -g, --group-by <GROUP_BY>...
-          Group information in a hierarchical manner; defaults to `-g resource,node,pod` (comma-separated list or multiple calls) [possible values: resource, node, pod, namespace]
-  -o, --output <OUTPUT>
-          Output format [default: table] [possible values: table, csv]
-  -s, --sort <SORT>
-          Sort rows by column(s), SQL-like syntax: 'col [ASC|DESC]' (comma-separated). Valid columns: usage/utilization, requested, limits/limit, allocatable, free, name. Direction is optional (default ASC). name ASC is always the implicit final tiebreaker [default: "usage DESC, requested DESC, limits DESC, name ASC"]
-  -h, --help
-          Print help
-  -V, --version
-          Print version
-
-https://github.com/davidB/kubectl-view-allocations
+ Resource              Requested          Limit  Allocatable     Free
+  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9
+  ephemeral-storage     (0%)  __       (0%)  __        38.4T    38.4T
+  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi
+  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0
+  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k
 ```
 
-### Show gpu allocation
+### Show GPU allocation
 
 ```sh
 
@@ -139,23 +107,10 @@ https://github.com/davidB/kubectl-view-allocations
      └─ fah-gpu-cpu-x7zfb         2.0         2.0           __    __
 ```
 
-### Overview only
-
-```sh
-> kubectl-view-allocations -g resource
-
- Resource              Requested          Limit  Allocatable     Free
-  cpu                 (21%) 56.7    (65%) 176.1        272.0     95.9
-  ephemeral-storage     (0%)  __       (0%)  __        38.4T    38.4T
-  memory             (8%) 52.7Gi  (15%) 101.3Gi      675.6Gi  574.3Gi
-  nvidia.com/gpu      (71%) 10.0     (71%) 10.0         14.0      4.0
-  pods                (9%) 147.0     (9%) 147.0         1.6k     1.5k
-```
-
 ### Show utilization
 
-- Utilization information are retrieve from [metrics-server](https://github.com/kubernetes-incubator/metrics-server) (should be setup on your cluster).
-- Only report cpu and memory utilization
+- Utilization information are retrieved from [metrics-server](https://github.com/kubernetes-incubator/metrics-server) (should be setup on your cluster).
+- Only reports cpu and memory utilization.
 
 ```sh
 > kubectl-view-allocations -u
@@ -206,9 +161,9 @@ https://github.com/davidB/kubectl-view-allocations
   └─ kube-system              5.0           5.0           __     __
 ```
 
-### Show as csv
+### Show as CSV
 
-In this case value as expanded as float (with 2 decimal)
+Values are expanded as floats (with 2 decimal places).
 
 ```sh
 kubectl-view-allocations -o csv
@@ -228,7 +183,7 @@ Date,Kind,resource,node,pod,Requested,%Requested,Limit,%Limit,Allocatable,Free
 ...
 ```
 
-It can be combined with "group-by" options.
+Can be combined with `--group-by`:
 
 ```sh
 kubectl-view-allocations -g resource -o csv
@@ -272,6 +227,51 @@ kubectl-view-allocations -l environment=production --ignore-taints dedicated=dat
 - **Include control-plane**: Use `--ignore-taints node-role.kubernetes.io/control-plane` to see workload + control-plane nodes
 - **Include specialized nodes**: Use `--ignore-taints dedicated,workload` to include dedicated or workload-specific nodes alongside regular workload nodes
 
+### Full option reference
+
+```sh
+> kubectl-view-allocations -h
+kubectl plugin to list allocations (cpu, memory, gpu,...) X (utilization, requested, limit, allocatable,...)
+
+Usage: kubectl-view-allocations [OPTIONS]
+
+Options:
+      --kubeconfig <KUBECONFIG>
+          Path to the kubeconfig file to use for requests to kubernetes cluster
+      --context <CONTEXT>
+          The name of the kubeconfig context to use
+  -n, --namespace <NAMESPACE>...
+          Filter pods by namespace(s), by default pods in all namespaces are listed (comma separated list or multiple calls)
+  -l, --selector <SELECTOR>
+          Show only nodes match this label selector
+      --ignore-taints [<IGNORE_TAINTS>...]
+          Ignore nodes with specific taints; when not specified, only nodes without taints are shown; when used without values, show all nodes (comma-separated list)
+  -u, --utilization
+          Force to retrieve utilization (for cpu and memory), requires having metrics-server https://github.com/kubernetes-sigs/metrics-server
+  -z, --show-zero
+          Show lines with zero requested AND zero limit AND zero allocatable, OR pods with unset requested AND limit for `cpu` and `memory`
+      --used-mode <USED_MODE>
+          The way to compute the `used` part for free (`allocatable - used`) [default: max-request-limit] [possible values: max-request-limit, only-request]
+      --precheck
+          Pre-check access and refresh token on kubeconfig by running `kubectl cluster-info`
+      --accept-invalid-certs
+          Accept invalid certificates (dangerous)
+  -r, --resource-name <RESOURCE_NAME>...
+          Filter resources shown by name(s), by default all resources are listed (comma separated list or multiple calls)
+  -g, --group-by <GROUP_BY>...
+          Group information in a hierarchical manner; defaults to `-g resource,node,pod` (comma-separated list or multiple calls) [possible values: resource, node, pod, namespace]
+  -o, --output <OUTPUT>
+          Output format [default: table] [possible values: table, csv]
+  -s, --sort <SORT>
+          Sort rows by column(s), SQL-like syntax: 'col [ASC|DESC]' (comma-separated). Valid columns: usage/utilization, requested, limits/limit, allocatable, free, name. Direction is optional (default ASC). name ASC is always the implicit final tiebreaker [default: "usage DESC, requested DESC, limits DESC, name ASC"]
+  -h, --help
+          Print help
+  -V, --version
+          Print version
+
+https://github.com/davidB/kubectl-view-allocations
+```
+
 ## Alternatives & Similars
 
 - see the discussion [Need simple kubectl command to see cluster resource usage · Issue #17512 · kubernetes/kubernetes](https://github.com/kubernetes/kubernetes/issues/17512)
@@ -283,3 +283,15 @@ kubectl-view-allocations -l environment=production --ignore-taints dedicated=dat
 - For CPU & Memory utilization only
   - `kubectl top pods`
   - [LeastAuthority/kubetop: A top(1)-like tool for Kubernetes.](https://github.com/LeastAuthority/kubetop)
+- As a Rust library
+  - [kdash-rs/kdash](https://crates.io/crates/kdash) embeds `kubectl-view-allocations` as a dependency. To use it in your own Rust project: `kubectl-view-allocations = { version = "1.1.0", default-features = false }` (add `k8s-openapi/vX_YY` to your features).
+- Via AI assistant (no binary needed)
+  - If your AI coding tool supports [skills.sh](https://skills.sh), install the assistant workflow with `npx skills add davidB/kubectl-view-allocations`. This lets your AI agent run and interpret `kubectl view-allocations` for you — it does not install the binary.
+
+## Sponsors
+
+[Alchim312 | CDviz](https://cdviz.dev) — SDLC observability platform built on CDEvents.
+
+Download history (weekly, powered by [CDviz download-history](https://download-history.cdviz.dev)):
+
+![Download History - All Time (Weekly)](https://download-history.cdviz.dev/api/chart/github.com/davidB/kubectl-view-allocations/all.svg?granularity=weekly)

@@ -4,6 +4,10 @@
 
 Use `kubectl view-allocations` for the first allocation query. Do not substitute `kubectl get`, `kubectl describe`, `kubectl top`, JSONPath, or a custom script for data that `kubectl view-allocations` already reports. Native `kubectl` is only a support tool for context/auth checks, metrics availability confirmation after `kubectl view-allocations -u` fails, or metadata that `kubectl view-allocations` cannot show.
 
+Key differentiators: shows **all resources** (GPU, custom, not just CPU/memory), **tree view** with flexible `-g` grouping, and **multi-column sort** via `--sort`.
+
+> **Default taint filtering**: only untainted nodes appear. If output is empty or nodes are missing, the cluster likely has taints on all nodes. Use `--ignore-taints` — see the taint recipes below.
+
 ## Quick Recipes
 
 Cluster overview:
@@ -64,6 +68,28 @@ CSV for spreadsheet or script analysis:
 kubectl view-allocations -o csv -g resource,node,pod
 kubectl view-allocations -o csv -g resource,namespace
 ```
+
+Sorting rows (applies within sibling groups at each tree level):
+
+```sh
+# Most requested first (find resource-hungry workloads)
+kubectl view-allocations -g resource,node,pod -s "requested DESC"
+
+# Most constrained nodes first (lowest free capacity)
+kubectl view-allocations -g resource,node -s "free ASC"
+
+# Highest actual usage first (requires metrics-server)
+kubectl view-allocations -u -s "usage DESC"
+
+# Multi-column: usage first, then requested as tiebreaker
+kubectl view-allocations -s "usage DESC, requested DESC"
+
+# Sort by name (alphabetical)
+kubectl view-allocations -s "name ASC"
+```
+
+Valid sort columns: `usage`/`utilization`, `requested`, `limits`/`limit`, `allocatable`, `free`, `name`.
+Default sort: `"usage DESC, requested DESC, limits DESC, name ASC"`.
 
 ## Choosing Flags
 
