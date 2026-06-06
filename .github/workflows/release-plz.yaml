@@ -10,9 +10,13 @@ env:
 jobs:
   release-pr:
     runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'davidB' }}
     permissions:
       contents: write
       pull-requests: write
+    concurrency:
+        group: release-plz-${{ github.ref }}
+        cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
         with:
@@ -28,8 +32,10 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'davidB' }}
     permissions:
       contents: write
+      pull-requests: read
     outputs:
       releases_created: ${{ steps.release-plz.outputs.releases_created }}
       tag: ${{ steps.tag.outputs.value }}
@@ -37,6 +43,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: mozilla-actions/sccache-action@v0.0.10
       - uses: dtolnay/rust-toolchain@stable
       - id: release-plz

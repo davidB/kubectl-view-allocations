@@ -1,7 +1,17 @@
 [workspace]
 changelog_update = true
-git_release_enable = false
-publish = true
 changelog_config = "cliff.toml"
+git_release_body = """
+{{ changelog }}
+{% if remote.contributors %}
+### Contributors
+{% for contributor in remote.contributors %}
+* @{{ contributor.username }}
+{% endfor %}
+{% endif %}
+"""
+git_release_enable = true
+git_release_name = "{{ version }}"
 git_tag_enable = true
 git_tag_name = "{{ version }}"
+publish = true

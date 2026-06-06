@@ -1,27 +1,6 @@
 # Changelog
 
-## [Unreleased]
 
-### Bug Fixes
-
-- Update ([7447c2a](https://github.com/davidB/kubectl-view-allocations/commit/7447c2a5af99de23ddf0ce267f3ceae0b5252989))
-
-### Dependencies
-
-- Bump mozilla-actions/sccache-action from 0.0.9 to 0.0.10 (#332) ([48aa3e0](https://github.com/davidB/kubectl-view-allocations/commit/48aa3e0590efacd4c381638faa166d7bc4cce786))
-
-### Documentation
-
-- Update and rework README & SKILL ([0486caa](https://github.com/davidB/kubectl-view-allocations/commit/0486caa1d4c071cfe101d49102db6bd4e65fb724))
-
-### Features
-
-- Add multi-column local sibling sort via --sort ([50bf067](https://github.com/davidB/kubectl-view-allocations/commit/50bf067addb0484a82d10648c0568bc57ba04d73))
-- Add kubectl-view-allocations AI coding skill (#333) ([847843e](https://github.com/davidB/kubectl-view-allocations/commit/847843ebd2f3bc056184ef9fe5234f86ae328df0))
-
-### Refactoring
-
-- Format ([259773d](https://github.com/davidB/kubectl-view-allocations/commit/259773de8a3514549dc65437fcd25a9c0ea4afb8))
 ## [1.1.1] - 2026-04-27
 
 ### Bug Fixes
