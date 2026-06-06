@@ -1,6 +1,6 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
-use kubectl_view_allocations::{CliOpts, GroupBy, do_main};
+use kubectl_view_allocations::{CliOpts, do_main};
 
 fn init_tracing() {
     use tracing_error::ErrorLayer;
@@ -25,19 +25,7 @@ async fn main() -> Result<()> {
     color_eyre::config::HookBuilder::default()
         .panic_section("consider reporting the bug on github")
         .install()?;
-    let mut cli_opts = CliOpts::parse();
-    //HACK because I didn't find how to default a multiple opts
-    if cli_opts.group_by.is_empty() {
-        cli_opts.group_by.push(GroupBy::resource);
-        cli_opts.group_by.push(GroupBy::node);
-        cli_opts.group_by.push(GroupBy::pod);
-    }
-    if !cli_opts.group_by.contains(&GroupBy::resource) {
-        cli_opts.group_by.insert(0, GroupBy::resource)
-    }
-    cli_opts.group_by.dedup();
-    // dbg!(&cli_opts);
-
+    let cli_opts = CliOpts::parse();
     do_main(&cli_opts).await?;
     Ok(())
 }
