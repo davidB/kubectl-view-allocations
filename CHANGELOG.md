@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [3.0.0] - 2026-06-06
+
+### Refactoring
+
+- [**breaking**] Shrink public API surface, add #[non_exhaustive] ([1bf24d6](https://github.com/davidB/kubectl-view-allocations/commit/1bf24d6deec76dcc3d7c810000a3c68181da20b3))
+- Split lib.rs into modules, fix async, rename enums, harden CSV ([873b50d](https://github.com/davidB/kubectl-view-allocations/commit/873b50dbf7676d8275f96a6880ee165cb38b43f7))
+
+
 ## [2.0.0] - 2026-06-06
 
 ### Bug Fixes
