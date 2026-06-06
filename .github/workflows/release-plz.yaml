@@ -98,8 +98,11 @@ jobs:
     needs: [release, build]
     if: needs.release.outputs.releases_created == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
+          fetch-depth: 0
       - uses: rajatjindal/krew-release-bot@v0.0.51
