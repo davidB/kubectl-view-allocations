@@ -20,6 +20,8 @@ Columns displayed :
 - `Free` : `Allocatable - max (Limit, Requested)` (by default, see options `--used-mode`)
 - `Utilization` : Quantity of resources (cpu & memory only) used as reported by Metrics API. It's disable by default, [metrics-server](https://github.com/kubernetes-incubator/metrics-server) is optional and should be setup into the cluster.
 
+![screenshot](./Screenshot-20260606_1213.png)
+
 ## Install
 
 ### Via download binary
@@ -87,7 +89,7 @@ Options:
           Filter pods by namespace(s), by default pods in all namespaces are listed (comma separated list or multiple calls)
   -l, --selector <SELECTOR>
           Show only nodes match this label selector
-      --ignore-taints <IGNORE_TAINTS>...
+      --ignore-taints [<IGNORE_TAINTS>...]
           Ignore nodes with specific taints; when not specified, only nodes without taints are shown; when used without values, show all nodes (comma-separated list)
   -u, --utilization
           Force to retrieve utilization (for cpu and memory), requires having metrics-server https://github.com/kubernetes-sigs/metrics-server
@@ -105,6 +107,8 @@ Options:
           Group information in a hierarchical manner; defaults to `-g resource,node,pod` (comma-separated list or multiple calls) [possible values: resource, node, pod, namespace]
   -o, --output <OUTPUT>
           Output format [default: table] [possible values: table, csv]
+  -s, --sort <SORT>
+          Sort rows by column(s), SQL-like syntax: 'col [ASC|DESC]' (comma-separated). Valid columns: usage/utilization, requested, limits/limit, allocatable, free, name. Direction is optional (default ASC). name ASC is always the implicit final tiebreaker [default: "usage DESC, requested DESC, limits DESC, name ASC"]
   -h, --help
           Print help
   -V, --version
@@ -156,25 +160,35 @@ https://github.com/davidB/kubectl-view-allocations
 ```sh
 > kubectl-view-allocations -u
 
- Resource                                        Utilization     Requested         Limit  Allocatable   Free
-  cpu                                              (0%) 9.0m  (10%) 200.0m            __          2.0    1.8
-  └─ lima-rancher-desktop                          (0%) 9.0m  (10%) 200.0m            __          2.0    1.8
-     ├─ coredns-96cc4f57d-57cj9                         1.0m        100.0m            __           __     __
-     ├─ local-path-provisioner-84bb864455-czzcg         1.0m            __            __           __     __
-     ├─ metrics-server-ff9dbcb6c-kb7x9                  4.0m        100.0m            __           __     __
-     ├─ svclb-traefik-ggd2q                             2.0m            __            __           __     __
-     └─ traefik-55fdc6d984-sqp57                        1.0m            __            __           __     __
-  ephemeral-storage                                       __            __            __        99.8G     __
-  └─ lima-rancher-desktop                                 __            __            __        99.8G     __
-  memory                                         (1%) 51.0Mi  (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi
-  └─ lima-rancher-desktop                        (1%) 51.0Mi  (2%) 140.0Mi  (3%) 170.0Mi        5.8Gi  5.6Gi
-     ├─ coredns-96cc4f57d-57cj9                       11.5Mi        70.0Mi       170.0Mi           __     __
-     ├─ local-path-provisioner-84bb864455-czzcg        6.2Mi            __            __           __     __
-     ├─ metrics-server-ff9dbcb6c-kb7x9                14.9Mi        70.0Mi            __           __     __
-     ├─ svclb-traefik-ggd2q                          548.0Ki            __            __           __     __
-     └─ traefik-55fdc6d984-sqp57                      17.9Mi            __            __           __     __
-  pods                                                    __      (5%) 5.0      (5%) 5.0        110.0  105.0
-  └─ lima-rancher-desktop                                 __      (5%) 5.0      (5%) 5.0        110.0  105.0
+ Resource                                                 Utilization     Requested         Limit  Allocatable    Free
+  cpu                                                      (0%) 31.0m   (6%) 950.0m   (1%) 100.0m         16.0    15.1
+  └─ demo-kube-control-plane                               (0%) 31.0m   (6%) 950.0m   (1%) 100.0m         16.0    15.1
+     ├─ kube-apiserver-demo-kube-control-plane                  13.0m        250.0m            __           __      __
+     ├─ etcd-demo-kube-control-plane                             6.0m        100.0m            __           __      __
+     ├─ kube-controller-manager-demo-kube-control-plane          4.0m        200.0m            __           __      __
+     ├─ metrics-server-7c47898747-664mk                          2.0m            __            __           __      __
+     ├─ kube-proxy-mnv5g                                         1.0m            __            __           __      __
+     ├─ local-path-provisioner-6bc4bddd6b-8q2bk                  1.0m            __            __           __      __
+     ├─ coredns-5d78c9869d-955fw                                 1.0m        100.0m            __           __      __
+     ├─ coredns-5d78c9869d-9jcrv                                 1.0m        100.0m            __           __      __
+     ├─ kube-scheduler-demo-kube-control-plane                   1.0m        100.0m            __           __      __
+     └─ kindnet-fz7fb                                            1.0m        100.0m        100.0m           __      __
+  ephemeral-storage                                                __            __            __      468.4Gi      __
+  └─ demo-kube-control-plane                                       __            __            __      468.4Gi      __
+  memory                                                 (2%) 487.1Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi  30.9Gi
+  └─ demo-kube-control-plane                             (2%) 487.1Mi  (1%) 290.0Mi  (1%) 390.0Mi       31.3Gi  30.9Gi
+     ├─ kube-apiserver-demo-kube-control-plane                296.8Mi            __            __           __      __
+     ├─ kube-controller-manager-demo-kube-control-plane        51.1Mi            __            __           __      __
+     ├─ etcd-demo-kube-control-plane                           32.4Mi       100.0Mi            __           __      __
+     ├─ kube-scheduler-demo-kube-control-plane                 25.2Mi            __            __           __      __
+     ├─ kube-proxy-mnv5g                                       17.2Mi            __            __           __      __
+     ├─ metrics-server-7c47898747-664mk                        16.6Mi            __            __           __      __
+     ├─ coredns-5d78c9869d-955fw                               14.9Mi        70.0Mi       170.0Mi           __      __
+     ├─ coredns-5d78c9869d-9jcrv                               14.0Mi        70.0Mi       170.0Mi           __      __
+     ├─ kindnet-fz7fb                                          10.2Mi        50.0Mi        50.0Mi           __      __
+     └─ local-path-provisioner-6bc4bddd6b-8q2bk                 8.6Mi            __            __           __      __
+  pods                                                             __     (9%) 10.0     (9%) 10.0        110.0   100.0
+  └─ demo-kube-control-plane                                       __     (9%) 10.0     (9%) 10.0        110.0   100.0
 ```
 
 ### Group by namespaces

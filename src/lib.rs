@@ -58,6 +58,9 @@ pub enum Error {
         context: String,
         source: kube::config::InferConfigError,
     },
+
+    #[error("Invalid sort column '{name}'. Valid: utilization/usage, requested, limit/limits, allocatable, free, name")]
+    InvalidSortColumn { name: String },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -92,6 +95,145 @@ pub struct QtyByQualifier {
     pub allocatable: Option<Qty>,
     pub utilization: Option<Qty>,
     pub present: Option<Qty>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SortDirection {
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SortColumnName {
+    Usage,
+    Requested,
+    Limits,
+    Allocatable,
+    Free,
+    Name,
+}
+
+#[derive(Debug, Clone)]
+pub struct SortColumn {
+    pub column: SortColumnName,
+    pub direction: SortDirection,
+}
+
+#[allow(clippy::result_large_err)]
+pub fn parse_sort_spec(s: &str) -> Result<Vec<SortColumn>, Error> {
+    s.split(',')
+        .map(|token| {
+            let parts: Vec<&str> = token.split_whitespace().collect();
+            let col_name = parts.first().copied().unwrap_or("").to_lowercase();
+            let direction_str = parts.get(1).copied().unwrap_or("asc").to_lowercase();
+
+            let column = match col_name.as_str() {
+                "usage" | "utilization" => SortColumnName::Usage,
+                "requested" => SortColumnName::Requested,
+                "limits" | "limit" => SortColumnName::Limits,
+                "allocatable" => SortColumnName::Allocatable,
+                "free" => SortColumnName::Free,
+                "name" => SortColumnName::Name,
+                other => return Err(Error::InvalidSortColumn { name: other.to_string() }),
+            };
+
+            let direction = match direction_str.as_str() {
+                "desc" => SortDirection::Desc,
+                _ => SortDirection::Asc,
+            };
+
+            Ok(SortColumn { column, direction })
+        })
+        .collect()
+}
+
+pub fn effective_sort_spec(spec: &[SortColumn], show_utilization: bool) -> Vec<SortColumn> {
+    spec.iter()
+        .filter(|col| show_utilization || col.column != SortColumnName::Usage)
+        .cloned()
+        .collect()
+}
+
+#[derive(Debug, Clone)]
+pub struct TableNode {
+    pub key: String,
+    pub path: Vec<String>,
+    pub quantities: Option<QtyByQualifier>,
+    pub free: Option<Qty>,
+    pub children: Vec<usize>,
+}
+
+fn compare_qty(a: Option<&Qty>, b: Option<&Qty>) -> std::cmp::Ordering {
+    match (a, b) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (Some(a), Some(b)) => a.cmp(b),
+    }
+}
+
+fn compare_nodes_by(a: &TableNode, b: &TableNode, col: &SortColumn) -> std::cmp::Ordering {
+    let ord = match col.column {
+        SortColumnName::Name => a.key.cmp(&b.key),
+        SortColumnName::Usage => compare_qty(
+            a.quantities.as_ref().and_then(|q| q.utilization.as_ref()),
+            b.quantities.as_ref().and_then(|q| q.utilization.as_ref()),
+        ),
+        SortColumnName::Requested => compare_qty(
+            a.quantities.as_ref().and_then(|q| q.requested.as_ref()),
+            b.quantities.as_ref().and_then(|q| q.requested.as_ref()),
+        ),
+        SortColumnName::Limits => compare_qty(
+            a.quantities.as_ref().and_then(|q| q.limit.as_ref()),
+            b.quantities.as_ref().and_then(|q| q.limit.as_ref()),
+        ),
+        SortColumnName::Allocatable => compare_qty(
+            a.quantities.as_ref().and_then(|q| q.allocatable.as_ref()),
+            b.quantities.as_ref().and_then(|q| q.allocatable.as_ref()),
+        ),
+        SortColumnName::Free => compare_qty(a.free.as_ref(), b.free.as_ref()),
+    };
+    match col.direction {
+        SortDirection::Asc => ord,
+        SortDirection::Desc => ord.reverse(),
+    }
+}
+
+fn sort_children_recursive(
+    nodes: &mut Vec<TableNode>,
+    indices: &mut [usize],
+    depth: usize,
+    resource_depth: usize,
+    sort_spec: &[SortColumn],
+) {
+    // At the resource level (cpu/memory/pods siblings), quantities are incomparable
+    // across resource kinds → always sort by name ASC.
+    // Ancestors (depth < resource_depth) have None quantities so they naturally fall
+    // through to the name ASC tiebreaker anyway.
+    let effective: &[SortColumn] = if depth == resource_depth { &[] } else { sort_spec };
+    indices.sort_by(|&a, &b| {
+        for col in effective {
+            let ord = compare_nodes_by(&nodes[a], &nodes[b], col);
+            if ord != std::cmp::Ordering::Equal {
+                return ord;
+            }
+        }
+        nodes[a].key.cmp(&nodes[b].key)
+    });
+    for &i in indices.iter() {
+        let mut ch = std::mem::take(&mut nodes[i].children);
+        sort_children_recursive(nodes, &mut ch, depth + 1, resource_depth, sort_spec);
+        nodes[i].children = ch;
+    }
+}
+
+fn flatten_tree(nodes: &[TableNode], indices: &[usize]) -> Vec<(Vec<String>, Option<QtyByQualifier>)> {
+    let mut out = vec![];
+    for &i in indices {
+        out.push((nodes[i].path.clone(), nodes[i].quantities.clone()));
+        out.extend(flatten_tree(nodes, &nodes[i].children));
+    }
+    out
 }
 
 fn add(lhs: Option<Qty>, rhs: &Qty) -> Option<Qty> {
@@ -155,9 +297,12 @@ pub fn make_qualifiers(
     rsrcs: &[Resource],
     group_by: &[GroupBy],
     resource_names: &[String],
+    sort_spec: &[SortColumn],
+    used_mode: UsedMode,
 ) -> Vec<(Vec<String>, Option<QtyByQualifier>)> {
     let group_by_fct = group_by.iter().map(GroupBy::to_fct).collect::<Vec<_>>();
-    let mut out = make_group_x_qualifier(
+    let mut nodes: Vec<TableNode> = vec![];
+    let mut root_indices = make_group_x_qualifier(
         &(rsrcs
             .iter()
             .filter(|a| accept_resource(&a.kind, resource_names))
@@ -165,9 +310,15 @@ pub fn make_qualifiers(
         &[],
         &group_by_fct,
         0,
+        &mut nodes,
+        used_mode,
     );
-    out.sort_by_key(|i| i.0.clone());
-    out
+    let resource_depth = group_by
+        .iter()
+        .position(|g| *g == GroupBy::resource)
+        .unwrap_or(0);
+    sort_children_recursive(&mut nodes, &mut root_indices, 0, resource_depth, sort_spec);
+    flatten_tree(&nodes, &root_indices)
 }
 
 fn make_group_x_qualifier(
@@ -175,10 +326,10 @@ fn make_group_x_qualifier(
     prefix: &[String],
     group_by_fct: &[fn(&Resource) -> Option<String>],
     group_by_depth: usize,
-) -> Vec<(Vec<String>, Option<QtyByQualifier>)> {
-    // Note: The `&` is significant here, `GroupBy` is iterable
-    // only by reference. You can also call `.into_iter()` explicitly.
-    let mut out = vec![];
+    nodes: &mut Vec<TableNode>,
+    used_mode: UsedMode,
+) -> Vec<usize> {
+    let mut out_indices = vec![];
     if let Some(group_by) = group_by_fct.get(group_by_depth) {
         for (key, group) in rsrcs
             .iter()
@@ -186,16 +337,24 @@ fn make_group_x_qualifier(
             .into_group_map()
         {
             let mut key_full = prefix.to_vec();
-            key_full.push(key);
-            let children =
-                make_group_x_qualifier(&group, &key_full, group_by_fct, group_by_depth + 1);
-            out.push((key_full, sum_by_qualifier(&group)));
-            out.extend(children);
+            key_full.push(key.clone());
+            let quantities = sum_by_qualifier(&group);
+            let free = quantities.as_ref().and_then(|q| q.calc_free(used_mode));
+            let idx = nodes.len();
+            nodes.push(TableNode {
+                key,
+                path: key_full.clone(),
+                quantities,
+                free,
+                children: vec![],
+            });
+            let child_indices =
+                make_group_x_qualifier(&group, &key_full, group_by_fct, group_by_depth + 1, nodes, used_mode);
+            nodes[idx].children = child_indices;
+            out_indices.push(idx);
         }
     }
-    // let kg = &rsrcs.into_iter().group_by(|v| v.kind);
-    // kg.into_iter().map(|(key, group)|  ).collect()
-    out
+    out_indices
 }
 
 fn accept_resource(name: &str, resource_filter: &[String]) -> bool {
@@ -753,6 +912,12 @@ pub struct CliOpts {
         value_parser
     )]
     pub output: Output,
+
+    /// Sort rows by column(s), SQL-like syntax: 'col [ASC|DESC]' (comma-separated).
+    /// Valid columns: usage/utilization, requested, limits/limit, allocatable, free, name.
+    /// Direction is optional (default ASC). name ASC is always the implicit final tiebreaker.
+    #[arg(short, long, default_value = "usage DESC, requested DESC, limits DESC, name ASC")]
+    pub sort: String,
 }
 
 pub async fn refresh_kube_config(cli_opts: &CliOpts) -> Result<(), Error> {
@@ -858,7 +1023,9 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
         false
     };
 
-    let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name);
+    let sort_spec = parse_sort_spec(&cli_opts.sort)?;
+    let effective_spec = effective_sort_spec(&sort_spec, show_utilization);
+    let res = make_qualifiers(&resources, &cli_opts.group_by, &cli_opts.resource_name, &effective_spec, cli_opts.used_mode);
     match &cli_opts.output {
         Output::table => display_with_prettytable(
             &res,
@@ -1061,6 +1228,178 @@ fn make_cell_for_prettytable(oqty: &Option<Qty>, o100: &Option<Qty>) -> Cell {
 mod tests {
     use super::*;
     use k8s_openapi::api::core::v1::{Node, NodeSpec, Taint};
+
+    fn qty(s: &str) -> Qty {
+        s.parse().unwrap()
+    }
+
+    fn make_table_node(key: &str, requested: Option<&str>) -> TableNode {
+        TableNode {
+            key: key.to_string(),
+            path: vec![key.to_string()],
+            quantities: requested.map(|r| QtyByQualifier {
+                requested: Some(qty(r)),
+                ..Default::default()
+            }),
+            free: None,
+            children: vec![],
+        }
+    }
+
+    #[test]
+    fn test_parse_sort_spec_full() {
+        let spec = parse_sort_spec("usage DESC, requested DESC, limits DESC, name ASC").unwrap();
+        assert_eq!(spec.len(), 4);
+        assert_eq!(spec[0].column, SortColumnName::Usage);
+        assert_eq!(spec[0].direction, SortDirection::Desc);
+        assert_eq!(spec[1].column, SortColumnName::Requested);
+        assert_eq!(spec[1].direction, SortDirection::Desc);
+        assert_eq!(spec[2].column, SortColumnName::Limits);
+        assert_eq!(spec[2].direction, SortDirection::Desc);
+        assert_eq!(spec[3].column, SortColumnName::Name);
+        assert_eq!(spec[3].direction, SortDirection::Asc);
+    }
+
+    #[test]
+    fn test_parse_sort_spec_direction_optional() {
+        let spec = parse_sort_spec("requested").unwrap();
+        assert_eq!(spec.len(), 1);
+        assert_eq!(spec[0].column, SortColumnName::Requested);
+        assert_eq!(spec[0].direction, SortDirection::Asc);
+    }
+
+    #[test]
+    fn test_parse_sort_spec_aliases() {
+        let spec = parse_sort_spec("UTILIZATION asc, LIMIT DESC").unwrap();
+        assert_eq!(spec[0].column, SortColumnName::Usage);
+        assert_eq!(spec[0].direction, SortDirection::Asc);
+        assert_eq!(spec[1].column, SortColumnName::Limits);
+        assert_eq!(spec[1].direction, SortDirection::Desc);
+    }
+
+    #[test]
+    fn test_parse_sort_spec_invalid() {
+        let result = parse_sort_spec("invalid DESC");
+        assert!(matches!(result, Err(Error::InvalidSortColumn { name }) if name == "invalid"));
+    }
+
+    #[test]
+    fn test_effective_sort_spec_removes_usage() {
+        let spec = parse_sort_spec("usage DESC, requested DESC").unwrap();
+        let effective = effective_sort_spec(&spec, false);
+        assert_eq!(effective.len(), 1);
+        assert_eq!(effective[0].column, SortColumnName::Requested);
+    }
+
+    #[test]
+    fn test_effective_sort_spec_keeps_usage_when_shown() {
+        let spec = parse_sort_spec("usage DESC, requested DESC").unwrap();
+        let effective = effective_sort_spec(&spec, true);
+        assert_eq!(effective.len(), 2);
+        assert_eq!(effective[0].column, SortColumnName::Usage);
+    }
+
+    #[test]
+    fn test_sort_children_by_requested_desc() {
+        let mut nodes = vec![
+            make_table_node("node-a", Some("1000m")),
+            make_table_node("node-b", Some("3000m")),
+            make_table_node("node-c", Some("2000m")),
+        ];
+        let mut indices = vec![0usize, 1, 2];
+        let spec = parse_sort_spec("requested DESC").unwrap();
+        sort_children_recursive(&mut nodes, &mut indices, 1, 0, &spec);
+        assert_eq!(indices, vec![1, 2, 0]); // 3000m, 2000m, 1000m
+    }
+
+    #[test]
+    fn test_sort_children_none_is_infinity() {
+        let mut nodes = vec![
+            make_table_node("node-a", Some("1000m")),
+            make_table_node("node-b", None),  // None = infinity → first in DESC
+            make_table_node("node-c", Some("2000m")),
+        ];
+        let mut indices = vec![0usize, 1, 2];
+        let spec = parse_sort_spec("requested DESC").unwrap();
+        sort_children_recursive(&mut nodes, &mut indices, 1, 0, &spec);
+        assert_eq!(indices, vec![1, 2, 0]); // None first, then 2000m, 1000m
+    }
+
+    #[test]
+    fn test_sort_children_name_asc_implicit_tiebreaker() {
+        let mut nodes = vec![
+            make_table_node("charlie", Some("1000m")),
+            make_table_node("alice", Some("1000m")),
+            make_table_node("bob", Some("1000m")),
+        ];
+        let mut indices = vec![0usize, 1, 2];
+        let spec = parse_sort_spec("requested DESC").unwrap();
+        sort_children_recursive(&mut nodes, &mut indices, 1, 0, &spec);
+        // all requested equal → name ASC tiebreaker
+        let names: Vec<&str> = indices.iter().map(|&i| nodes[i].key.as_str()).collect();
+        assert_eq!(names, vec!["alice", "bob", "charlie"]);
+    }
+
+    #[test]
+    fn test_sort_none_quantities_ancestor_level() {
+        // Nodes with None quantities (e.g. namespace level) all tie → name ASC
+        let mut nodes = vec![
+            make_table_node("kube-system", None),
+            make_table_node("default", None),
+            make_table_node("monitoring", None),
+        ];
+        let mut indices = vec![0usize, 1, 2];
+        let spec = parse_sort_spec("requested DESC, limits DESC").unwrap();
+        sort_children_recursive(&mut nodes, &mut indices, 1, 0, &spec);
+        let names: Vec<&str> = indices.iter().map(|&i| nodes[i].key.as_str()).collect();
+        assert_eq!(names, vec!["default", "kube-system", "monitoring"]);
+    }
+
+    #[test]
+    fn test_flatten_tree_dfs_order() {
+        // root(0) → children [1, 2]; node 1 → children [3]
+        let nodes = vec![
+            TableNode { key: "root".into(), path: vec!["root".into()], quantities: None, free: None, children: vec![1, 2] },
+            TableNode { key: "a".into(), path: vec!["root".into(), "a".into()], quantities: None, free: None, children: vec![3] },
+            TableNode { key: "b".into(), path: vec!["root".into(), "b".into()], quantities: None, free: None, children: vec![] },
+            TableNode { key: "a1".into(), path: vec!["root".into(), "a".into(), "a1".into()], quantities: None, free: None, children: vec![] },
+        ];
+        let flat = flatten_tree(&nodes, &[0]);
+        let keys: Vec<&str> = flat.iter().map(|(p, _)| p.last().unwrap().as_str()).collect();
+        assert_eq!(keys, vec!["root", "a", "a1", "b"]);
+    }
+
+    #[test]
+    fn test_resource_level_always_name_asc() {
+        // At resource_depth, siblings sort by name ASC regardless of sort_spec
+        let mut nodes = vec![
+            make_table_node("memory", Some("8000000000")), // ~8Gi
+            make_table_node("cpu", Some("3000m")),         // smaller i64 value
+            make_table_node("pods", Some("110")),
+        ];
+        let mut indices = vec![0usize, 1, 2];
+        let spec = parse_sort_spec("requested DESC").unwrap();
+        // resource_depth = 0, depth = 0 → name ASC forced
+        sort_children_recursive(&mut nodes, &mut indices, 0, 0, &spec);
+        let names: Vec<&str> = indices.iter().map(|&i| nodes[i].key.as_str()).collect();
+        assert_eq!(names, vec!["cpu", "memory", "pods"]);
+    }
+
+    #[test]
+    fn test_non_resource_level_uses_sort_spec() {
+        // At depth > resource_depth, sort spec applies
+        let mut nodes = vec![
+            make_table_node("node-a", Some("1000m")),
+            make_table_node("node-b", Some("3000m")),
+            make_table_node("node-c", Some("2000m")),
+        ];
+        let mut indices = vec![0usize, 1, 2];
+        let spec = parse_sort_spec("requested DESC").unwrap();
+        // resource_depth = 0, depth = 1 → sort spec applies
+        sort_children_recursive(&mut nodes, &mut indices, 1, 0, &spec);
+        let names: Vec<&str> = indices.iter().map(|&i| nodes[i].key.as_str()).collect();
+        assert_eq!(names, vec!["node-b", "node-c", "node-a"]); // 3000m, 2000m, 1000m
+    }
 
     fn create_test_node(name: &str, taints: Vec<Taint>) -> Node {
         Node {
