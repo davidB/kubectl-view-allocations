@@ -18,7 +18,7 @@ jobs:
         group: release-plz-${{ github.ref }}
         cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: mozilla-actions/sccache-action@v0.0.10
@@ -40,7 +40,7 @@ jobs:
       releases_created: ${{ steps.release-plz.outputs.releases_created }}
       tag: ${{ steps.tag.outputs.value }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -74,7 +74,7 @@ jobs:
           - { target_platform: x86_64-apple-darwin,  imageName: macOS-latest }
           - { target_platform: aarch64-apple-darwin, imageName: macOS-latest }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.tag }}
       - uses: mozilla-actions/sccache-action@v0.0.10
@@ -101,7 +101,7 @@ jobs:
     permissions:
       actions: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.tag }}
       - run: gh workflow run krew-update.yaml --ref "$TAG"
