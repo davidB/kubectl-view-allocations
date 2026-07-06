@@ -1,6 +1,14 @@
 # Changelog
 
 
+## [3.0.2] - 2026-07-06
+
+### Dependencies
+
+- Bump kube from 3.1.0 to 4.0.0 ([36d2ef7](https://github.com/davidB/kubectl-view-allocations/commit/36d2ef7a91b4a545c5de1847d57a30759286d011))
+- Bump itertools from 0.14.0 to 0.15.0 (#344) ([ac1e9a5](https://github.com/davidB/kubectl-view-allocations/commit/ac1e9a56ba38eaa9891f431559af999e323bca5d))
+
+
 ## [3.0.1] - 2026-06-06
 
 ### Refactoring
