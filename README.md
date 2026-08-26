@@ -39,6 +39,7 @@ kubectl view-allocations -u
   - [Show utilization](#show-utilization)
   - [Group by namespaces](#group-by-namespaces)
   - [Show as CSV](#show-as-csv)
+  - [Show as JSON](#show-as-json)
   - [Filter by node taints](#filter-by-node-taints)
   - [Full option reference](#full-option-reference)
 - [Alternatives](#alternatives)
@@ -197,6 +198,29 @@ Date,Kind,resource,Requested,%Requested,Limit,%Limit,Allocatable,Free
 2020-08-19T19:11:49.630864028+00:00,resource,pods,0.00,0%,0.00,0%,1540.00,1540.00
 ```
 
+### Show as JSON
+
+Same rows as the CSV output, but as a JSON array so consumers (dashboards, CI checks) don't have to re-parse the flat CSV. Quantities and percentages are numbers (or `null` when not available), and each record carries its group-by path so the tree can be rebuilt.
+
+```sh
+kubectl-view-allocations -g resource -o json
+[
+  {
+    "date": "2020-08-19T19:11:49.630864028+00:00",
+    "kind": "resource",
+    "resource": "cpu",
+    "requested": 59.94,
+    "requested_percentage": 22.03,
+    "limit": 106.10,
+    "limit_percentage": 39.00,
+    "allocatable": 272.00,
+    "free": 165.90
+  }
+]
+```
+
+`%Utilization` and `utilization` fields are added when `-u` is used.
+
 ### Filter by Node Taints
 
 By default, `kubectl-view-allocations` only shows nodes without taints (workload nodes). The `--ignore-taints` option allows you to control which nodes are included based on their taints.
@@ -261,7 +285,7 @@ Options:
   -g, --group-by <GROUP_BY>...
           Group information in a hierarchical manner; defaults to `-g resource,node,pod` (comma-separated list or multiple calls) [possible values: resource, node, pod, namespace]
   -o, --output <OUTPUT>
-          Output format [default: table] [possible values: table, csv]
+          Output format [default: table] [possible values: table, csv, json]
   -s, --sort <SORT>
           Sort rows by column(s), SQL-like syntax: 'col [ASC|DESC]' (comma-separated). Valid columns: usage/utilization, requested, limits/limit, allocatable, free, name. Direction is optional (default ASC). name ASC is always the implicit final tiebreaker [default: "usage DESC, requested DESC, limits DESC, name ASC"]
   -h, --help
