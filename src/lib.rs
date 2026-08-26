@@ -6,7 +6,7 @@ mod sort;
 mod tree;
 
 pub use collect::{collect_from_metrics, collect_from_nodes, collect_from_pods};
-pub use display::{display_as_csv, display_with_prettytable};
+pub use display::{display_as_csv, display_as_json, display_with_prettytable};
 pub use sort::{SortColumn, SortColumnName, SortDirection, parse_sort_spec};
 use sort::{effective_sort_spec, flatten_tree, sort_children_recursive};
 
@@ -193,6 +193,7 @@ pub enum Output {
     #[default]
     Table,
     Csv,
+    Json,
 }
 
 #[derive(Debug, Eq, PartialEq, ValueEnum, Clone, Copy, Default)]
@@ -542,6 +543,7 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
     match &cli_opts.output {
         Output::Table => display_with_prettytable(&res, !&cli_opts.show_zero, show_utilization),
         Output::Csv => display_as_csv(&res, &group_by, show_utilization),
+        Output::Json => display_as_json(&res, &group_by, show_utilization),
     }
     Ok(())
 }
