@@ -1,6 +1,22 @@
 # Changelog
 
 
+## [3.1.0] - 2026-09-05
+
+### Bug Fixes
+
+- Update ([d6f37f6](https://github.com/davidB/kubectl-view-allocations/commit/d6f37f65e0b0fb32079735c9c76c322fca57b7a6))
+
+### Documentation
+
+- Document cordoned-node taint caveat for --ignore-taints ([2a3af6f](https://github.com/davidB/kubectl-view-allocations/commit/2a3af6fd4885b9ce16408f6c57fb9b5db1e2f50f))
+
+### Features
+
+- Add windows/amd64 release build and krew platform entry ([42102cf](https://github.com/davidB/kubectl-view-allocations/commit/42102cf13e5be8648359c0c82d8f08c44befb4de))
+- Add json output format (-o json) ([3cb65d6](https://github.com/davidB/kubectl-view-allocations/commit/3cb65d6883ce1de8b10a1e6ee416600022f98f68))
+
+
 ## [3.0.2] - 2026-07-06
 
 ### Dependencies
