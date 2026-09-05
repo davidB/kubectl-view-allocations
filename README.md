@@ -251,6 +251,8 @@ kubectl-view-allocations -l environment=production --ignore-taints dedicated=dat
 - **Include control-plane**: Use `--ignore-taints node-role.kubernetes.io/control-plane` to see workload + control-plane nodes
 - **Include specialized nodes**: Use `--ignore-taints dedicated,workload` to include dedicated or workload-specific nodes alongside regular workload nodes
 
+**Cordoned nodes:** `kubectl cordon` adds the taint `node.kubernetes.io/unschedulable`, so cordoned nodes (and their allocations, e.g. GPUs) are hidden by default too. Use `--ignore-taints node.kubernetes.io/unschedulable` (or `--ignore-taints` with no value) to include them.
+
 ### Full option reference
 
 ```sh
