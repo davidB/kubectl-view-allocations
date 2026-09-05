@@ -24,7 +24,7 @@ jobs:
         os:
           - imageName: ubuntu-latest
           - imageName: macOS-latest
-          # - imageName: windows-latest
+          - imageName: windows-latest
 
     steps:
       - uses: actions/checkout@v7
@@ -34,6 +34,7 @@ jobs:
           cache: false
           cache_save: false
       - run: mise run ci
+      # - run: mise run zip-release-ci-flow
         # for list of xcode sdk see https://help.github.com/en/actions/automating-your-workflow-with-github-actions/software-installed-on-github-hosted-runners#xcode
         # DEVELOPER_DIR: "/Applications/Xcode_11.app/Contents/Developer"
 

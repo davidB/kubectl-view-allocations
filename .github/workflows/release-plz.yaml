@@ -73,6 +73,7 @@ jobs:
           - { target_platform: aarch64-unknown-linux-musl, imageName: ubuntu-latest, cross: "true" }
           - { target_platform: x86_64-apple-darwin,  imageName: macOS-latest }
           - { target_platform: aarch64-apple-darwin, imageName: macOS-latest }
+          - { target_platform: x86_64-pc-windows-msvc, imageName: windows-latest }
     steps:
       - uses: actions/checkout@v7
         with:

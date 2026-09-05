@@ -61,7 +61,18 @@ cargo clippy -- -D warnings
 # Build tasks for different targets
 [tasks.build-release-for-target]
 description = "Build release for specific target"
+shell = "bash -c"
 run = """
+set -euo pipefail
+TARGET="${TARGET:-}"
+CROSS="${CROSS:-}"
+
+# bash/MSYS on Windows mangles PATH when spawning native subprocesses, so
+# `sccache` alone is not found there; use the absolute path the action exports.
+if [ -n "${SCCACHE_PATH:-}" ]; then
+    export RUSTC_WRAPPER="$SCCACHE_PATH"
+fi
+
 if [ -n "$TARGET" ]; then
     rustup toolchain install stable --target "$TARGET" --profile minimal --no-self-update
     rustup target add "$TARGET"
@@ -79,23 +90,37 @@ fi
 [tasks.zip-release-ci-flow]
 description = "Complete release build and packaging"
 depends = ["build-release-for-target"]
+shell = "bash -c"
 run = """
+set -euo pipefail
+TARGET="${TARGET:-}"
+
 DIST_VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[0].version')
 DIST_NAME="kubectl-view-allocations_${DIST_VERSION}-${TARGET:-x86_64-unknown-linux-gnu}"
-DIST_EXT="tar.gz"
 DIST_PATH="target/dist/${DIST_NAME}"
+
+BIN_NAME="kubectl-view-allocations"
+DIST_EXT="tar.gz"
+case "${TARGET:-$(uname -s)}" in
+  *windows*|MINGW*|MSYS*|CYGWIN*) BIN_NAME="kubectl-view-allocations.exe"; DIST_EXT="zip" ;;
+esac
 
 rm -rf "${DIST_PATH}"
 mkdir -p "${DIST_PATH}"
 
 if [ -n "$TARGET" ]; then
-    cp target/${TARGET}/release/kubectl-view-allocations "${DIST_PATH}/"
+    cp "target/${TARGET}/release/${BIN_NAME}" "${DIST_PATH}/"
 else
-    cp target/release/kubectl-view-allocations "${DIST_PATH}/"
+    cp "target/release/${BIN_NAME}" "${DIST_PATH}/"
 fi
 
 cp LICENSE.txt "${DIST_PATH}/" || echo "LICENSE.txt not found"
-tar -czvf "${DIST_PATH}.${DIST_EXT}" -C "${DIST_PATH}" "kubectl-view-allocations" "LICENSE.txt"
+if [ "$DIST_EXT" = "zip" ]; then
+    # use PowerShell's built-in Compress-Archive: `zip`/7z are not guaranteed on the runner
+    powershell.exe -NoProfile -Command "Compress-Archive -Path '${DIST_PATH}/${BIN_NAME}','${DIST_PATH}/LICENSE.txt' -DestinationPath '${DIST_PATH}.${DIST_EXT}' -Force"
+else
+    tar -czvf "${DIST_PATH}.${DIST_EXT}" -C "${DIST_PATH}" "${BIN_NAME}" "LICENSE.txt"
+fi
 echo "Created: ${DIST_PATH}.${DIST_EXT}"
 
 if [ -n "$GITHUB_OUTPUT" ]; then
