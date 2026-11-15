@@ -130,6 +130,22 @@ Devices managed by [DRA](https://kubernetes.io/docs/concepts/scheduling-eviction
   └─ kub-as11                                    (0%) __     (0%) __          2.0   2.0
 ```
 
+Use `-g resource,node,claim,pod` to show the ResourceClaims between nodes and pods (resources requested by pods without claim are grouped under `<no claim>`):
+
+```sh
+> kubectl-view-allocations -r gpu.nvidia.com -g resource,node,claim,pod
+
+ Resource                                   Requested       Limit  Allocatable  Free
+  gpu.nvidia.com                           (50%) 3.0   (50%) 3.0          6.0   3.0
+  ├─ kub-a17                              (100%) 2.0  (100%) 2.0          2.0    __
+  │  └─ vllm-gpus-kub-a17                        2.0         2.0           __    __
+  │     └─ vllm-router-abcde, vllm-worker-0      2.0         2.0           __    __
+  ├─ kub-b10                               (50%) 1.0   (50%) 1.0          2.0   1.0
+  │  └─ gpu-ssh-l622q-gpu-x7k2p                  1.0         1.0           __    __
+  │     └─ gpu-ssh-l622q                         1.0         1.0           __    __
+  └─ kub-as11                                (0%) __     (0%) __          2.0   2.0
+```
+
 Requires `list` permission on `resourceslices`, `resourceclaims` and `deviceclasses` (`resource.k8s.io`); use `--no-dra` to skip the collection.
 
 Known limitations: partitionable devices (eg. MIG profiles published alongside the full GPU via shared counters) are each counted as a device, so the allocatable can be overestimated.
