@@ -16,7 +16,7 @@ use kube::api::{Api, DynamicObject, ListParams, ObjectMeta};
 use kube::discovery::ApiGroup;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::str::FromStr;
 use tracing::{info, instrument, warn};
 
@@ -171,6 +171,18 @@ pub(crate) struct DeviceClass {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DeviceClassSpec {
     pub extended_resource_name: Option<String>,
+    #[serde(default)]
+    pub selectors: Vec<DeviceSelector>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct DeviceSelector {
+    pub cel: Option<CelDeviceSelector>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct CelDeviceSelector {
+    pub expression: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -185,12 +197,17 @@ pub(crate) struct DraObjects {
 /// Do nothing when the cluster doesn't serve the `resource.k8s.io` API.
 /// Must be called after [`crate::collect_from_pods`]: requests of extended resources backed by DRA
 /// are removed from the pods, as they are counted from their ResourceClaim.
+///
+/// Devices are reported under the name of their driver, or under the resource name given by
+/// `aliases` (driver -> resource name). Without alias, a driver is aliased to the
+/// `extendedResourceName` of the DeviceClasses selecting it (when not ambiguous).
 #[instrument(skip(client, resources))]
 pub async fn collect_from_dra(
     client: kube::Client,
     resources: &mut Vec<Resource>,
     namespace: &[String],
     selected_node_names: &[String],
+    aliases: &BTreeMap<String, String>,
 ) -> Result<(), Error> {
     let group = match kube::discovery::group(&client, API_GROUP).await {
         Ok(group) => group,
@@ -224,6 +241,7 @@ pub async fn collect_from_dra(
         },
         resources,
         selected_node_names,
+        aliases,
     )
 }
 
@@ -278,8 +296,17 @@ pub(crate) fn extract_from_dra(
     objects: DraObjects,
     resources: &mut Vec<Resource>,
     selected_node_names: &[String],
+    aliases: &BTreeMap<String, String>,
 ) -> Result<(), Error> {
     let one = Qty::from_str("1")?;
+    let mut kinds = extended_resource_names_by_driver(&objects.classes);
+    kinds.extend(aliases.iter().map(|(k, v)| (k.clone(), v.clone())));
+    let kind_of = |driver: &str| {
+        kinds
+            .get(driver)
+            .cloned()
+            .unwrap_or_else(|| driver.to_string())
+    };
     let is_selected = |node_name: &str| {
         node_name.starts_with(POOL_NODE_PREFIX)
             || selected_node_names.iter().any(|n| n == node_name)
@@ -310,7 +337,7 @@ pub(crate) fn extract_from_dra(
                 .unwrap_or_else(|| pool_node_name(&spec.pool.name));
             if is_selected(&node_name) {
                 resources.push(Resource {
-                    kind: spec.driver.clone(),
+                    kind: kind_of(&spec.driver),
                     quantity: one.clone(),
                     location: Location {
                         node_name: node_name.clone(),
@@ -413,7 +440,7 @@ pub(crate) fn extract_from_dra(
             // devices are allocated exclusively, so limit == requested
             for qualifier in [ResourceQualifier::Requested, ResourceQualifier::Limit] {
                 resources.push(Resource {
-                    kind: result.driver.clone(),
+                    kind: kind_of(&result.driver),
                     quantity: quantity.clone(),
                     location: location.clone(),
                     qualifier,
@@ -447,6 +474,63 @@ pub(crate) fn extract_from_dra(
 
     remove_extended_resources_from_pods(resources, &extended_resources_by_pod);
     Ok(())
+}
+
+/// driver -> `extendedResourceName` of the DeviceClasses selecting devices of this driver only,
+/// ignored when a driver is selected by classes with different extended resource names
+fn extended_resource_names_by_driver(classes: &[DeviceClass]) -> BTreeMap<String, String> {
+    let mut names: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for class in classes {
+        let Some(resource_name) = &class.spec.extended_resource_name else {
+            continue;
+        };
+        let drivers = class
+            .spec
+            .selectors
+            .iter()
+            .filter_map(|s| s.cel.as_ref())
+            .flat_map(|cel| drivers_in_cel(&cel.expression))
+            .collect::<BTreeSet<_>>();
+        if drivers.len() == 1 {
+            for driver in drivers {
+                names
+                    .entry(driver)
+                    .or_default()
+                    .insert(resource_name.clone());
+            }
+        }
+    }
+    names
+        .into_iter()
+        .filter_map(|(driver, resource_names)| {
+            if resource_names.len() == 1 {
+                resource_names.into_iter().next().map(|n| (driver, n))
+            } else {
+                info!(
+                    driver,
+                    ?resource_names,
+                    "ambiguous extended resource names, use `--dra-alias`"
+                );
+                None
+            }
+        })
+        .collect()
+}
+
+/// drivers compared in a CEL expression like `device.driver == "gpu.nvidia.com"`
+fn drivers_in_cel(expression: &str) -> Vec<String> {
+    expression
+        .match_indices("device.driver")
+        .filter_map(|(i, m)| {
+            let rest = expression[i + m.len()..]
+                .trim_start()
+                .strip_prefix("==")?
+                .trim_start();
+            let quote = rest.chars().next().filter(|c| *c == '"' || *c == '\'')?;
+            let value = &rest[1..];
+            value.find(quote).map(|end| value[..end].to_string())
+        })
+        .collect()
 }
 
 fn pool_node_name(pool_name: &str) -> String {
@@ -495,7 +579,6 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use serde_json::json;
-    use std::collections::BTreeMap;
 
     fn slice(
         node_name: Option<&str>,
@@ -572,7 +655,7 @@ mod tests {
             ..DraObjects::default()
         };
         let mut resources = vec![];
-        extract_from_dra(objects, &mut resources, &selected_nodes()).unwrap();
+        extract_from_dra(objects, &mut resources, &selected_nodes(), &BTreeMap::new()).unwrap();
         assert_eq!(
             summarize(&resources),
             BTreeMap::from([
@@ -622,7 +705,7 @@ mod tests {
             ..DraObjects::default()
         };
         let mut resources = vec![];
-        extract_from_dra(objects, &mut resources, &selected_nodes()).unwrap();
+        extract_from_dra(objects, &mut resources, &selected_nodes(), &BTreeMap::new()).unwrap();
         let summary = summarize(&resources);
         let requested = summary
             .into_iter()
@@ -666,7 +749,7 @@ mod tests {
             ..DraObjects::default()
         };
         let mut resources = vec![];
-        extract_from_dra(objects, &mut resources, &selected_nodes()).unwrap();
+        extract_from_dra(objects, &mut resources, &selected_nodes(), &BTreeMap::new()).unwrap();
         let nodes = resources
             .iter()
             .map(|r| r.location.node_name.as_str())
@@ -705,7 +788,10 @@ mod tests {
         let classes = vec![
             serde_json::from_value(json!({
                 "metadata": { "name": "gpu.nvidia.com" },
-                "spec": { "extendedResourceName": "nvidia.com/gpu" }
+                "spec": {
+                    "extendedResourceName": "nvidia.com/gpu",
+                    "selectors": [{ "cel": { "expression": "device.driver == 'gpu.nvidia.com'" } }]
+                }
             }))
             .unwrap(),
         ];
@@ -714,7 +800,7 @@ mod tests {
             claims: vec![extended],
             classes,
         };
-        extract_from_dra(objects, &mut resources, &selected_nodes()).unwrap();
+        extract_from_dra(objects, &mut resources, &selected_nodes(), &BTreeMap::new()).unwrap();
         let kinds = resources
             .iter()
             .map(|r| (r.kind.as_str(), format!("{:?}", r.qualifier)))
@@ -724,9 +810,9 @@ mod tests {
             vec![
                 ("cpu", "Requested".to_string()),
                 ("pods", "Requested".to_string()),
-                ("gpu.nvidia.com", "Allocatable".to_string()),
-                ("gpu.nvidia.com", "Requested".to_string()),
-                ("gpu.nvidia.com", "Limit".to_string()),
+                ("nvidia.com/gpu", "Allocatable".to_string()),
+                ("nvidia.com/gpu", "Requested".to_string()),
+                ("nvidia.com/gpu", "Limit".to_string()),
             ]
         );
     }
@@ -746,5 +832,79 @@ mod tests {
             .flat_map(DeviceRequest::device_class_names)
             .collect::<Vec<_>>();
         assert_eq!(names, vec!["a", "b", "c", "d"]);
+    }
+
+    fn class(name: &str, extended_resource_name: Option<&str>, expression: &str) -> DeviceClass {
+        serde_json::from_value(json!({
+            "metadata": { "name": name },
+            "spec": {
+                "extendedResourceName": extended_resource_name,
+                "selectors": [{ "cel": { "expression": expression } }]
+            }
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn drivers_are_extracted_from_cel_expressions() {
+        assert_eq!(
+            drivers_in_cel("device.driver == \"gpu.nvidia.com\""),
+            vec!["gpu.nvidia.com"]
+        );
+        assert_eq!(
+            drivers_in_cel("device.driver=='a' && device.attributes['a'].type == 'gpu'"),
+            vec!["a"]
+        );
+        assert!(drivers_in_cel("device.driver != 'a'").is_empty());
+        assert!(drivers_in_cel("device.driver in ['a', 'b']").is_empty());
+    }
+
+    #[test]
+    fn extended_resource_names_by_driver_ignores_ambiguous() {
+        let classes = vec![
+            class(
+                "gpu",
+                Some("nvidia.com/gpu"),
+                "device.driver == 'gpu.nvidia.com'",
+            ),
+            class("mig", None, "device.driver == 'gpu.nvidia.com'"),
+            class(
+                "a1",
+                Some("example.com/a"),
+                "device.driver == 'a.example.com'",
+            ),
+            class(
+                "a2",
+                Some("example.com/other"),
+                "device.driver == 'a.example.com'",
+            ),
+            class(
+                "multi",
+                Some("example.com/multi"),
+                "device.driver == 'x.example.com' || device.driver == 'y.example.com'",
+            ),
+        ];
+        assert_eq!(
+            extended_resource_names_by_driver(&classes),
+            BTreeMap::from([("gpu.nvidia.com".to_string(), "nvidia.com/gpu".to_string())])
+        );
+    }
+
+    #[test]
+    fn explicit_alias_overrides_device_class() {
+        let objects = DraObjects {
+            slices: vec![slice(Some("node-a"), "node-a", 1, &["gpu-0"])],
+            claims: vec![claim("single", &[("node-a", "gpu-0")], &["ssh"])],
+            classes: vec![class(
+                "gpu",
+                Some("nvidia.com/gpu"),
+                "device.driver == 'gpu.nvidia.com'",
+            )],
+        };
+        let aliases = BTreeMap::from([("gpu.nvidia.com".to_string(), "gpu".to_string())]);
+        let mut resources = vec![];
+        extract_from_dra(objects, &mut resources, &selected_nodes(), &aliases).unwrap();
+        assert!(resources.iter().all(|r| r.kind == "gpu"));
+        assert_eq!(resources.len(), 3);
     }
 }

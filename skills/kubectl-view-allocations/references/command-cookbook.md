@@ -48,6 +48,14 @@ kubectl view-allocations -r gpu
 kubectl view-allocations -r nvidia.com/gpu -g resource,node,pod
 ```
 
+GPU or devices managed by Dynamic Resource Allocation (DRA, ResourceSlices & ResourceClaims), reported under the driver name (eg. `gpu.nvidia.com`) or the `extendedResourceName` of their DeviceClass:
+
+```sh
+kubectl view-allocations -r gpu --pod-with-namespace
+kubectl view-allocations -r gpu.nvidia.com -g resource,node,claim,pod
+kubectl view-allocations --dra-alias gpu.nvidia.com=nvidia.com/gpu -r gpu
+```
+
 Include tainted nodes:
 
 ```sh
@@ -94,6 +102,7 @@ Default sort: `"usage DESC, requested DESC, limits DESC, name ASC"`.
 ## Choosing Flags
 
 - Use `-r/--resource-name` for resource filters. Matching is substring-based, so `-r gpu` can match `nvidia.com/gpu`.
+- Use `--pod-with-namespace` to display pods as `namespace/pod`.
 - Use `-n/--namespace` one or more times, or comma-separated, for pod namespace filtering.
 - Use `-l/--selector` to filter nodes by label selector.
 - Use `-z/--show-zero` to expose zero-request/zero-limit rows and pods with unset CPU/memory requests and limits.
@@ -148,6 +157,6 @@ If results miss control-plane or dedicated nodes, remember that the default excl
 
 If `-u` shows no utilization, verify metrics-server/PodMetrics availability. Do not treat missing utilization as zero usage.
 
-If namespaces look empty, verify the namespace filter and RBAC permissions. The command needs to list nodes, pods, and optionally pod metrics.
+If namespaces look empty, verify the namespace filter and RBAC permissions. The command needs to list nodes, pods, and optionally pod metrics and DRA `resourceslices`, `resourceclaims`, `deviceclasses` (skip DRA with `--no-dra`).
 
 If CSV headers look surprising, note that `Kind` identifies the current grouping level and group columns follow the selected `-g` order.
