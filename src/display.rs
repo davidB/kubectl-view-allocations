@@ -139,12 +139,20 @@ fn qty_to_json(oqty: &Option<Qty>) -> serde_json::Value {
 }
 
 fn percentage_to_json(oqty: &Option<Qty>, o100: &Option<Qty>) -> serde_json::Value {
-    match (oqty, o100) {
-        (Some(qty), Some(q100)) => serde_json::Number::from_f64(qty.calc_percentage(q100))
-            .map(serde_json::Value::Number)
-            .unwrap_or(serde_json::Value::Null),
-        _ => serde_json::Value::Null,
-    }
+    oqty.as_ref()
+        .and_then(|qty| percentage(qty, o100))
+        .and_then(serde_json::Number::from_f64)
+        .map(serde_json::Value::Number)
+        .unwrap_or(serde_json::Value::Null)
+}
+
+/// Percentage of `qty` relative to `o100`, `None` when there is no base or the
+/// base is zero (eg. `nvidia.com/gpu` requested on nodes that only expose GPUs
+/// through DRA), so callers never print `NaN%`.
+fn percentage(qty: &Qty, o100: &Option<Qty>) -> Option<f64> {
+    o100.as_ref()
+        .map(|q100| qty.calc_percentage(q100))
+        .filter(|p| p.is_finite())
 }
 
 fn csv_escape(s: &str) -> String {
@@ -163,9 +171,9 @@ fn add_cells_for_csv(row: &mut Vec<String>, oqty: &Option<Qty>, o100: &Option<Qt
         }
         Some(qty) => {
             row.push(format!("{:.2}", f64::from(qty)));
-            row.push(match o100 {
+            row.push(match percentage(qty, o100) {
                 None => "".to_string(),
-                Some(q100) => format!("{:.0}%", qty.calc_percentage(q100)),
+                Some(p) => format!("{:.0}%", p),
             });
         }
     };
@@ -259,9 +267,10 @@ pub fn display_with_prettytable(
 fn make_cell_for_prettytable(oqty: &Option<Qty>, o100: &Option<Qty>) -> Cell {
     let txt = match oqty {
         None => "__".to_string(),
-        Some(qty) => match o100 {
-            None => format!("{}", qty.adjust_scale()),
-            Some(q100) => format!("({:.0}%) {}", qty.calc_percentage(q100), qty.adjust_scale()),
+        Some(qty) => match (o100, percentage(qty, o100)) {
+            (None, _) => format!("{}", qty.adjust_scale()),
+            (Some(_), None) => format!("(-) {}", qty.adjust_scale()),
+            (Some(_), Some(p)) => format!("({:.0}%) {}", p, qty.adjust_scale()),
         },
     };
     Cell::new(&txt)
@@ -346,5 +355,23 @@ mod tests {
         let row = &value.as_array().unwrap()[0];
         assert_eq!(row["utilization"].as_f64().unwrap(), 1.0);
         assert_eq!(row["utilization_percentage"].as_f64().unwrap(), 50.0);
+    }
+
+    #[test]
+    fn percentage_is_none_when_allocatable_is_zero() {
+        assert_eq!(percentage(&qty("54"), &Some(qty("0"))), None);
+        assert_eq!(percentage(&qty("54"), &None), None);
+        assert_eq!(percentage(&qty("1"), &Some(qty("4"))), Some(25.0));
+
+        let mut row = vec![];
+        add_cells_for_csv(&mut row, &Some(qty("54")), &Some(qty("0")));
+        assert_eq!(row, vec!["54.00".to_string(), "".to_string()]);
+    }
+
+    #[cfg(feature = "prettytable")]
+    #[test]
+    fn prettytable_cell_shows_dash_instead_of_nan() {
+        let cell = make_cell_for_prettytable(&Some(qty("54")), &Some(qty("0")));
+        assert_eq!(cell.get_content(), "(-) 54.0");
     }
 }
