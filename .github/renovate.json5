@@ -1,0 +1,18 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended", ":semanticCommits"],
+  // only update crates (Cargo.toml) and github-actions (workflows)
+  enabledManagers: ["cargo", "github-actions"],
+  // only direct dependencies: no lock file maintenance (transitive updates)
+  lockFileMaintenance: { enabled: false },
+  schedule: ["* 0-3 1 * *"],
+  automerge: true,
+  automergeType: "pr",
+  packageRules: [
+    {
+      groupName: "kube & k8s",
+      matchManagers: ["cargo"],
+      matchPackageNames: ["/^kube/", "/^k8s-/"],
+    },
+  ],
+}

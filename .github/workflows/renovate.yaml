@@ -1,0 +1,24 @@
+name: renovate
+
+on:
+  workflow_dispatch:
+  schedule:
+    # daily, so automerge can proceed once checks pass (PRs are only created on the 1st of the month, see .github/renovate.json5)
+    - cron: "0 2 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'davidB' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: renovatebot/github-action@v46.3.13
+        with:
+          # a PAT (or GitHub App token) is required: PRs created with GITHUB_TOKEN don't trigger the ci workflow
+          token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_ONBOARDING: "false"
