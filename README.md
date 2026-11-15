@@ -24,7 +24,7 @@ kubectl view-allocations -u
 
 | Column | Description |
 |---|---|
-| `Requested` | Resources requested by containers in pod manifests, summed by pod/namespace/node. Includes percentage of the group's allocatable total. |
+| `Requested` | Resources requested by containers in pod manifests, summed by pod/namespace/node. Includes percentage of the group's allocatable total (`(-)` when the allocatable total is `0`). |
 | `Limit` | Max resources (limit) set in pod manifests, summed by pod/namespace/node. Includes percentage of the group's allocatable total. |
 | `Allocatable` | Allocatable resources defined (or detected) on nodes. |
 | `Free` | `Allocatable - max(Limit, Requested)` by default — see `--used-mode` to change this. |
