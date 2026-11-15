@@ -316,6 +316,21 @@ pub struct CliOpts {
     /// Do not collect devices from Dynamic Resource Allocation (DRA) ResourceSlices & ResourceClaims
     #[arg(long, value_parser)]
     pub no_dra: bool,
+
+    /// Report devices of a DRA driver under a resource name, eg. `gpu.nvidia.com=nvidia.com/gpu`;
+    /// by default the `extendedResourceName` of the DeviceClass selecting the driver, else the driver name
+    /// (comma-separated list or multiple calls)
+    #[arg(long, value_name = "DRIVER=RESOURCE", value_parser = parse_dra_alias, value_delimiter = ',', num_args = 1..)]
+    pub dra_alias: Vec<(String, String)>,
+}
+
+fn parse_dra_alias(s: &str) -> Result<(String, String), String> {
+    match s.split_once('=') {
+        Some((driver, resource)) if !driver.is_empty() && !resource.is_empty() => {
+            Ok((driver.to_string(), resource.to_string()))
+        }
+        _ => Err(format!("expected DRIVER=RESOURCE, got '{s}'")),
+    }
 }
 
 impl CliOpts {
@@ -573,6 +588,7 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
             &mut resources,
             &cli_opts.namespace,
             &node_names,
+            &cli_opts.dra_alias.iter().cloned().collect(),
         )
         .await
     {
@@ -944,6 +960,24 @@ mod tests {
                 Some("ns1/pod-x".to_string()),
                 Some("ns2/pod-y, ns2/pod-z".to_string()),
                 None
+            ]
+        );
+    }
+
+    #[test]
+    fn test_parse_dra_alias() {
+        assert_eq!(
+            parse_dra_alias("gpu.nvidia.com=nvidia.com/gpu"),
+            Ok(("gpu.nvidia.com".to_string(), "nvidia.com/gpu".to_string()))
+        );
+        assert!(parse_dra_alias("gpu.nvidia.com").is_err());
+        assert!(parse_dra_alias("=nvidia.com/gpu").is_err());
+        let opts = CliOpts::parse_from(["kubectl-view-allocations", "--dra-alias", "a=x,b=y"]);
+        assert_eq!(
+            opts.dra_alias,
+            vec![
+                ("a".to_string(), "x".to_string()),
+                ("b".to_string(), "y".to_string())
             ]
         );
     }

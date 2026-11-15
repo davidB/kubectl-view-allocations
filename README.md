@@ -10,8 +10,8 @@
 
 `kubectl` plugin for visualizing resource allocations across your cluster. Key differentiators:
 
-- **All resources** — cpu, memory, gpu, and any custom resource; not limited to cpu/memory like most tools
-- **Tree view** — group and aggregate by resource, node, namespace, or pod in any combination via `-g`
+- **All resources** — cpu, memory, gpu, any custom resource, and devices managed by [DRA](#dynamic-resource-allocation-dra); not limited to cpu/memory like most tools
+- **Tree view** — group and aggregate by resource, node, namespace, DRA claim, or pod in any combination via `-g`
 - **Full picture** — requested, limit, allocatable, free, and optionally live utilization (`-u`, requires metrics-server)
 
 ```sh
@@ -111,7 +111,13 @@ All examples use `kubectl-view-allocations` directly; if installed via krew, sub
 
 ### Dynamic Resource Allocation (DRA)
 
-Devices managed by [DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/) drivers (eg. the [NVIDIA DRA driver](https://github.com/NVIDIA/k8s-dra-driver-gpu)) are not part of the node's allocatable resources. When the cluster serves the `resource.k8s.io` API (`v1`, `v1beta2` or `v1beta1`), they are reported under the name of their driver (eg. `gpu.nvidia.com`):
+Devices managed by [DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/) drivers (eg. the [NVIDIA DRA driver](https://github.com/NVIDIA/k8s-dra-driver-gpu)) are not part of the node's allocatable resources. When the cluster serves the `resource.k8s.io` API (`v1`, `v1beta2` or `v1beta1`), they are reported under:
+
+- the resource name given by `--dra-alias DRIVER=RESOURCE` (eg. `--dra-alias gpu.nvidia.com=nvidia.com/gpu`), to merge them with the resources of nodes using a device plugin
+- else the `extendedResourceName` of the `DeviceClass` selecting the driver (via a CEL selector `device.driver == '...'`), when there is only one
+- else the name of their driver (eg. `gpu.nvidia.com`)
+
+For each of them:
 
 - `Allocatable`: devices published in the `ResourceSlice`s, by node (devices not attached to a single node are grouped under a pseudo node `pool:<pool name>`)
 - `Requested` & `Limit`: devices allocated to `ResourceClaim`s, by node, by pods the claim is reserved for. A claim shared by several pods is displayed once, with the names of its pods joined by `, ` (or `claim/<claim name>` when it is not reserved yet).
@@ -148,7 +154,7 @@ Use `-g resource,node,claim,pod` to show the ResourceClaims between nodes and po
 
 Requires `list` permission on `resourceslices`, `resourceclaims` and `deviceclasses` (`resource.k8s.io`); use `--no-dra` to skip the collection.
 
-Known limitations: partitionable devices (eg. MIG profiles published alongside the full GPU via shared counters) are each counted as a device, so the allocatable can be overestimated.
+Known limitations: every device of a driver is reported under the same resource name (eg. full GPUs and MIG devices); partitionable devices (eg. MIG profiles published alongside the full GPU via shared counters) are each counted as a device, so the allocatable can be overestimated.
 
 ### Show utilization
 
@@ -330,7 +336,7 @@ Options:
   -z, --show-zero
           Show lines with zero requested AND zero limit AND zero allocatable, OR pods with unset requested AND limit for `cpu` and `memory`
       --used-mode <USED_MODE>
-          The way to compute the `used` part for free (`allocatable - used`) [default: max-request-limit] [possible values: max-request-limit, only-request]
+          The way to compute the `used` part for free (`allocatable - used`) [default: max_request_limit] [possible values: max_request_limit, only_request]
       --precheck
           Pre-check access and refresh token on kubeconfig by running `kubectl cluster-info`
       --accept-invalid-certs
@@ -338,13 +344,19 @@ Options:
   -r, --resource-name <RESOURCE_NAME>...
           Filter resources shown by name(s), by default all resources are listed (comma separated list or multiple calls)
   -g, --group-by <GROUP_BY>...
-          Group information in a hierarchical manner; defaults to `-g resource,node,pod` (comma-separated list or multiple calls) [possible values: resource, node, pod, namespace]
+          Group information in a hierarchical manner; defaults to `-g resource,node,pod` (comma-separated list or multiple calls) [possible values: resource, node, pod, namespace, claim]
   -o, --output <OUTPUT>
           Output format [default: table] [possible values: table, csv, json]
   -s, --sort <SORT>
           Sort rows by column(s), SQL-like syntax: 'col [ASC|DESC]' (comma-separated). Valid columns: usage/utilization, requested, limits/limit, allocatable, free, name. Direction is optional (default ASC). name ASC is always the implicit final tiebreaker [default: "usage DESC, requested DESC, limits DESC, name ASC"]
+      --pod-with-namespace
+          Display pods as `namespace/pod` (in every output format)
+      --no-dra
+          Do not collect devices from Dynamic Resource Allocation (DRA) ResourceSlices & ResourceClaims
+      --dra-alias <DRIVER=RESOURCE>...
+          Report devices of a DRA driver under a resource name, eg. `gpu.nvidia.com=nvidia.com/gpu`; by default the `extendedResourceName` of the DeviceClass selecting the driver, else the driver name (comma-separated list or multiple calls)
   -h, --help
-          Print help
+          Print help (see more with '--help')
   -V, --version
           Print version
 

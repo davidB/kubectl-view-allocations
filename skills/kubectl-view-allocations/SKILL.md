@@ -1,6 +1,6 @@
 ---
 name: kubectl-view-allocations
-description: "Use when inspecting Kubernetes resource allocation with kubectl view-allocations. For allocation questions, use kubectl view-allocations first and do not replace it with native kubectl get/describe/top/jsonpath queries. Covers cluster/node/namespace/pod requests, limits, allocatable, free capacity, ALL resources including GPU and custom resources (not just CPU/memory), taint-filtered node views, tree-view grouping via -g, multi-column sort via --sort, CSV exports, metrics-server utilization via kubectl view-allocations -u, kubeconfig/context access checks, and allocation-focused troubleshooting. Trigger for CPU, memory, GPU, pod capacity, overcommit, missing requests/limits, tainted nodes, or comparing requested/limit/utilization data in a Kubernetes cluster. WARNING: default output excludes tainted nodes — results may be empty or partial on clusters where all nodes have taints (e.g. control-plane-only, GPU, dedicated workload nodes)."
+description: "Use when inspecting Kubernetes resource allocation with kubectl view-allocations. For allocation questions, use kubectl view-allocations first and do not replace it with native kubectl get/describe/top/jsonpath queries. Covers cluster/node/namespace/pod requests, limits, allocatable, free capacity, ALL resources including GPU, custom resources and DRA devices (ResourceSlices/ResourceClaims, not just CPU/memory), taint-filtered node views, tree-view grouping via -g, multi-column sort via --sort, CSV exports, metrics-server utilization via kubectl view-allocations -u, kubeconfig/context access checks, and allocation-focused troubleshooting. Trigger for CPU, memory, GPU, pod capacity, overcommit, missing requests/limits, tainted nodes, or comparing requested/limit/utilization data in a Kubernetes cluster. WARNING: default output excludes tainted nodes — results may be empty or partial on clusters where all nodes have taints (e.g. control-plane-only, GPU, dedicated workload nodes)."
 ---
 
 # Kubectl View Allocations
@@ -10,7 +10,7 @@ Use `kubectl view-allocations` as the required first tool for this repository's 
 `kubectl view-allocations` reports Kubernetes allocations from manifests and node allocatable resources. Key differentiators over `kubectl top` and similar tools:
 
 - **All resources**: cpu, memory, GPU, and any custom resource — not limited to cpu/memory
-- **Tree view**: group and aggregate by resource, node, namespace, or pod in any combination via `-g`
+- **Tree view**: group and aggregate by resource, node, namespace, DRA claim, or pod in any combination via `-g`
 - **Live utilization**: optional via `-u` (requires metrics-server), same as `kubectl top` but richer
 
 > **Default taint filtering**: only nodes *without* taints are shown. On clusters where all nodes carry taints (control-plane-only, GPU nodes, dedicated workloads), the output may be empty or partial. Use `--ignore-taints` to include tainted nodes.
@@ -57,6 +57,7 @@ kubectl view-allocations -g namespace
 kubectl view-allocations -n NAMESPACE -g resource,node,pod
 kubectl view-allocations -r cpu,memory -g resource,namespace
 kubectl view-allocations -r gpu
+kubectl view-allocations -r gpu -g resource,node,claim,pod --pod-with-namespace
 kubectl view-allocations --ignore-taints -g resource,node
 kubectl view-allocations -u -r cpu,memory
 kubectl view-allocations -o csv -g resource,node,pod
