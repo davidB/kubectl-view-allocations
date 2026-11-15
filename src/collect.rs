@@ -189,6 +189,7 @@ pub(crate) fn extract_allocatable_from_pods(
             node_name: node_name.clone(),
             namespace: metadata.namespace.clone(),
             pod_name: metadata.name.clone(),
+            ..Location::default()
         };
         // see https://kubernetes.io/docs/concepts/workloads/pods/init-containers/#resources
         let mut resource_requests: BTreeMap<String, Qty> = BTreeMap::new();

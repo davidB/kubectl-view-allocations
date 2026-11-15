@@ -36,6 +36,7 @@ kubectl view-allocations -u
 - [Usage](#usage)
   - [Overview only](#overview-only)
   - [Show GPU allocation](#show-gpu-allocation)
+  - [Dynamic Resource Allocation (DRA)](#dynamic-resource-allocation-dra)
   - [Show utilization](#show-utilization)
   - [Group by namespaces](#group-by-namespaces)
   - [Show as CSV](#show-as-csv)
@@ -107,6 +108,31 @@ All examples use `kubectl-view-allocations` directly; if installed via krew, sub
   └─ node-gpu7             (100%) 2.0  (100%) 2.0          2.0    __
      └─ fah-gpu-cpu-x7zfb         2.0         2.0           __    __
 ```
+
+### Dynamic Resource Allocation (DRA)
+
+Devices managed by [DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/) drivers (eg. the [NVIDIA DRA driver](https://github.com/NVIDIA/k8s-dra-driver-gpu)) are not part of the node's allocatable resources. When the cluster serves the `resource.k8s.io` API (`v1`, `v1beta2` or `v1beta1`), they are reported under the name of their driver (eg. `gpu.nvidia.com`):
+
+- `Allocatable`: devices published in the `ResourceSlice`s, by node (devices not attached to a single node are grouped under a pseudo node `pool:<pool name>`)
+- `Requested` & `Limit`: devices allocated to `ResourceClaim`s, by node, by pods the claim is reserved for. A claim shared by several pods is displayed once, with the names of its pods joined by `, ` (or `claim/<claim name>` when it is not reserved yet).
+- each device is counted once, including when it is shared by several claims. Devices allocated with `adminAccess` are not counted.
+- pods requesting an [extended resource backed by DRA](https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/#extended-resource) (eg. `nvidia.com/gpu` without device plugin) are counted from the ResourceClaim created by the scheduler, not from their container requests.
+
+```sh
+> kubectl-view-allocations -r gpu --pod-with-namespace
+
+ Resource                                       Requested       Limit  Allocatable  Free
+  gpu.nvidia.com                               (50%) 3.0   (50%) 3.0          6.0   3.0
+  ├─ kub-a17                                  (100%) 2.0  (100%) 2.0          2.0    __
+  │  └─ llm/vllm-router-abcde, llm/vllm-worker-0     2.0         2.0           __    __
+  ├─ kub-b10                                   (50%) 1.0   (50%) 1.0          2.0   1.0
+  │  └─ mynamespace/gpu-ssh-l622q                    1.0         1.0           __    __
+  └─ kub-as11                                    (0%) __     (0%) __          2.0   2.0
+```
+
+Requires `list` permission on `resourceslices`, `resourceclaims` and `deviceclasses` (`resource.k8s.io`); use `--no-dra` to skip the collection.
+
+Known limitations: partitionable devices (eg. MIG profiles published alongside the full GPU via shared counters) are each counted as a device, so the allocatable can be overestimated.
 
 ### Show utilization
 
