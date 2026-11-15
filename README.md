@@ -162,6 +162,17 @@ All examples use `kubectl-view-allocations` directly; if installed via krew, sub
   └─ kube-system              5.0           5.0           __     __
 ```
 
+Pods with the same name may exist in several namespaces; use `--pod-with-namespace` to display pods as `namespace/pod`:
+
+```sh
+> kubectl-view-allocations -r gpu --pod-with-namespace
+
+ Resource                              Requested       Limit  Allocatable  Free
+  nvidia.com/gpu                      (50%) 1.0   (50%) 1.0          2.0   1.0
+  └─ node-gpu1                        (50%) 1.0   (50%) 1.0          2.0   1.0
+     └─ mynamespace/gpu-ssh-l622q           1.0         1.0           __    __
+```
+
 ### Show as CSV
 
 Values are expanded as floats (with 2 decimal places).

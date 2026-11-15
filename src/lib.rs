@@ -289,6 +289,10 @@ pub struct CliOpts {
         default_value = "usage DESC, requested DESC, limits DESC, name ASC"
     )]
     pub sort: String,
+
+    /// Display pods as `namespace/pod` (in every output format)
+    #[arg(long, value_parser)]
+    pub pod_with_namespace: bool,
 }
 
 impl CliOpts {
@@ -305,6 +309,26 @@ impl CliOpts {
         group_by
     }
 }
+
+/// Rename pods as `namespace/pod`, to disambiguate pods with the same name in
+/// different namespaces. Pods sharing the same (DRA) resource are joined by `, `
+/// in `pod_name`, each of them is prefixed.
+pub fn prefix_pod_names_with_namespace(resources: &mut [Resource]) {
+    for resource in resources.iter_mut() {
+        let location = &mut resource.location;
+        if let (Some(ns), Some(pod_name)) = (&location.namespace, &location.pod_name) {
+            location.pod_name = Some(
+                pod_name
+                    .split(POD_NAMES_SEPARATOR)
+                    .map(|name| format!("{ns}/{name}"))
+                    .join(POD_NAMES_SEPARATOR),
+            );
+        }
+    }
+}
+
+/// Separator used when several pods share the same resource (eg. a DRA ResourceClaim)
+pub(crate) const POD_NAMES_SEPARATOR: &str = ", ";
 
 fn add(lhs: Option<Qty>, rhs: &Qty) -> Option<Qty> {
     lhs.map(|l| &l + rhs).or_else(|| Some(rhs.clone()))
@@ -529,6 +553,10 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
     } else {
         false
     };
+    // after metrics, as they are matched to pods by (namespace, pod_name)
+    if cli_opts.pod_with_namespace {
+        prefix_pod_names_with_namespace(&mut resources);
+    }
 
     let group_by = cli_opts.effective_group_by();
     let sort_spec = parse_sort_spec(&cli_opts.sort)?;
@@ -778,6 +806,39 @@ mod tests {
             effect: "NoSchedule".to_string(),
             time_added: None,
         }
+    }
+
+    #[test]
+    fn test_prefix_pod_names_with_namespace() {
+        let mk = |namespace: Option<&str>, pod_name: Option<&str>| Resource {
+            kind: "cpu".to_string(),
+            quantity: qty("1"),
+            location: Location {
+                node_name: "node-a".to_string(),
+                namespace: namespace.map(String::from),
+                pod_name: pod_name.map(String::from),
+                ..Location::default()
+            },
+            qualifier: ResourceQualifier::Requested,
+        };
+        let mut resources = vec![
+            mk(Some("ns1"), Some("pod-x")),
+            mk(Some("ns2"), Some("pod-y, pod-z")),
+            mk(None, None),
+        ];
+        prefix_pod_names_with_namespace(&mut resources);
+        let names: Vec<_> = resources
+            .iter()
+            .map(|r| r.location.pod_name.clone())
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                Some("ns1/pod-x".to_string()),
+                Some("ns2/pod-y, ns2/pod-z".to_string()),
+                None
+            ]
+        );
     }
 
     #[test]
