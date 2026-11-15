@@ -5,7 +5,7 @@
   enabledManagers: ["cargo", "github-actions"],
   // only direct dependencies: no lock file maintenance (transitive updates)
   lockFileMaintenance: { enabled: false },
-  schedule: ["* 0-3 1 * *"],
+  // no schedule: runs are controlled by .github/workflows/renovate.yaml (weekly + manual)
   automerge: true,
   automergeType: "pr",
   packageRules: [
@@ -13,6 +13,8 @@
       groupName: "kube & k8s",
       matchManagers: ["cargo"],
       matchPackageNames: ["/^kube/", "/^k8s-/"],
+      // kube and k8s-openapi must be bumped together, even when one is a major update and the other is not
+      separateMajorMinor: false,
     },
   ],
 }

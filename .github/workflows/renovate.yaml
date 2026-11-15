@@ -3,8 +3,8 @@ name: renovate
 on:
   workflow_dispatch:
   schedule:
-    # daily, so automerge can proceed once checks pass (PRs are only created on the 1st of the month, see .github/renovate.json5)
-    - cron: "0 2 * * *"
+    # weekly, every Friday (automerge of PRs with passing checks happens on the next run)
+    - cron: "0 2 * * 5"
 
 permissions:
   contents: read
