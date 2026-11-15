@@ -145,6 +145,8 @@ pub enum GroupBy {
     Node,
     Pod,
     Namespace,
+    /// DRA ResourceClaim
+    Claim,
 }
 
 impl GroupBy {
@@ -154,6 +156,7 @@ impl GroupBy {
             Self::Node => Self::extract_node_name,
             Self::Pod => Self::extract_pod_name,
             Self::Namespace => Self::extract_namespace,
+            Self::Claim => Self::extract_claim,
         }
     }
 
@@ -176,6 +179,17 @@ impl GroupBy {
     fn extract_namespace(e: &Resource) -> Option<String> {
         e.location.namespace.clone()
     }
+
+    fn extract_claim(e: &Resource) -> Option<String> {
+        // pods' resources not allocated by a claim are kept, to be able to group by pod after claim
+        e.location.claim.clone().or_else(|| {
+            e.location
+                .pod_name
+                .as_ref()
+                .filter(|_| e.kind != "pods")
+                .map(|_| NO_CLAIM.to_string())
+        })
+    }
 }
 
 impl std::fmt::Display for GroupBy {
@@ -185,6 +199,7 @@ impl std::fmt::Display for GroupBy {
             Self::Node => "node",
             Self::Pod => "pod",
             Self::Namespace => "namespace",
+            Self::Claim => "claim",
         };
         f.write_str(s)
     }
@@ -334,6 +349,9 @@ pub fn prefix_pod_names_with_namespace(resources: &mut [Resource]) {
         }
     }
 }
+
+/// Claim key of the resources requested by pods without ResourceClaim (when grouping by claim)
+pub(crate) const NO_CLAIM: &str = "<no claim>";
 
 /// Separator used when several pods share the same resource (eg. a DRA ResourceClaim)
 pub(crate) const POD_NAMES_SEPARATOR: &str = ", ";
@@ -825,6 +843,76 @@ mod tests {
             effect: "NoSchedule".to_string(),
             time_added: None,
         }
+    }
+
+    #[test]
+    fn test_group_by_claim() {
+        let mk = |pod_name: Option<&str>, claim: Option<&str>, qualifier| Resource {
+            kind: "gpu.nvidia.com".to_string(),
+            quantity: qty("1"),
+            location: Location {
+                node_name: "node-a".to_string(),
+                namespace: pod_name.map(|_| "ns1".to_string()),
+                pod_name: pod_name.map(String::from),
+                claim: claim.map(String::from),
+            },
+            qualifier,
+        };
+        let resources = vec![
+            mk(None, None, ResourceQualifier::Allocatable),
+            mk(None, None, ResourceQualifier::Allocatable),
+            mk(None, None, ResourceQualifier::Allocatable),
+            mk(
+                Some("router, worker"),
+                Some("shared"),
+                ResourceQualifier::Requested,
+            ),
+            mk(
+                Some("router, worker"),
+                Some("shared"),
+                ResourceQualifier::Requested,
+            ),
+            mk(Some("ssh"), None, ResourceQualifier::Requested),
+        ];
+        let group_by = vec![
+            GroupBy::Resource,
+            GroupBy::Node,
+            GroupBy::Claim,
+            GroupBy::Pod,
+        ];
+        let rows = make_qualifiers(&resources, &group_by, &[], &[], UsedMode::OnlyRequest);
+        let rows = rows
+            .iter()
+            .map(|(path, q, _)| {
+                (
+                    path.join(" > "),
+                    q.as_ref()
+                        .and_then(|q| q.requested.clone())
+                        .map(|r| format!("{}", r.adjust_scale())),
+                )
+            })
+            .collect::<Vec<_>>();
+        let some = |s: &str| Some(s.to_string());
+        assert_eq!(
+            rows,
+            vec![
+                ("gpu.nvidia.com".to_string(), some("3.0")),
+                ("gpu.nvidia.com > node-a".to_string(), some("3.0")),
+                (
+                    "gpu.nvidia.com > node-a > <no claim>".to_string(),
+                    some("1.0")
+                ),
+                (
+                    "gpu.nvidia.com > node-a > <no claim> > ssh".to_string(),
+                    some("1.0")
+                ),
+                ("gpu.nvidia.com > node-a > shared".to_string(), some("2.0")),
+                (
+                    "gpu.nvidia.com > node-a > shared > router, worker".to_string(),
+                    some("2.0")
+                ),
+            ]
+        );
     }
 
     #[test]
