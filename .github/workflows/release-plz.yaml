@@ -79,7 +79,7 @@ jobs:
         with:
           ref: ${{ needs.release.outputs.tag }}
       - uses: mozilla-actions/sccache-action@v0.0.11
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@v5
       - id: zip-release-ci-flow
         run: mise run zip-release-ci-flow
         env:
