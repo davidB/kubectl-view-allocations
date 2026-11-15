@@ -1,5 +1,6 @@
 mod collect;
 mod display;
+mod dra;
 mod metrics;
 pub mod qty;
 mod sort;
@@ -7,6 +8,7 @@ mod tree;
 
 pub use collect::{collect_from_metrics, collect_from_nodes, collect_from_pods};
 pub use display::{display_as_csv, display_as_json, display_with_prettytable};
+pub use dra::collect_from_dra;
 pub use sort::{SortColumn, SortColumnName, SortDirection, parse_sort_spec};
 use sort::{effective_sort_spec, flatten_tree, sort_children_recursive};
 
@@ -71,6 +73,8 @@ pub struct Location {
     pub node_name: String,
     pub namespace: Option<String>,
     pub pod_name: Option<String>,
+    /// name of the DRA ResourceClaim (in `namespace`) the resource is allocated to
+    pub claim: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -293,6 +297,10 @@ pub struct CliOpts {
     /// Display pods as `namespace/pod` (in every output format)
     #[arg(long, value_parser)]
     pub pod_with_namespace: bool,
+
+    /// Do not collect devices from Dynamic Resource Allocation (DRA) ResourceSlices & ResourceClaims
+    #[arg(long, value_parser)]
+    pub no_dra: bool,
 }
 
 impl CliOpts {
@@ -541,6 +549,17 @@ pub async fn do_main(cli_opts: &CliOpts) -> Result<(), Error> {
         &node_names,
     )
     .await?;
+    if !cli_opts.no_dra
+        && let Err(err) = collect_from_dra(
+            client.clone(),
+            &mut resources,
+            &cli_opts.namespace,
+            &node_names,
+        )
+        .await
+    {
+        warn!(?err);
+    }
 
     let show_utilization = if cli_opts.utilization {
         match collect_from_metrics(client.clone(), &mut resources).await {
