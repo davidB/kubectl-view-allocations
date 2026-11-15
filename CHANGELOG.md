@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [3.2.0] - 2026-11-15
+
+### Bug Fixes
+
+- Update kube & k8s ([25d2163](https://github.com/davidB/kubectl-view-allocations/commit/25d2163123c13959dc5aacc2e7353f59d37cc3a5))
+- Show `(-)` instead of `NaN%` when allocatable is zero ([8b04d6e](https://github.com/davidB/kubectl-view-allocations/commit/8b04d6ed95648538e7c610e6a71b91e571d91483))
+
+### Features
+
+- Report DRA devices under the extended resource name of their DeviceClass ([809367e](https://github.com/davidB/kubectl-view-allocations/commit/809367ef754c52c1fff505487cba29e224b95a7c))
+- Add `claim` level to `--group-by` for DRA ResourceClaims ([f004d72](https://github.com/davidB/kubectl-view-allocations/commit/f004d7269d8aa163e279119afb44e6547e2b6c2c))
+- Report devices from Dynamic Resource Allocation (DRA) ([893379d](https://github.com/davidB/kubectl-view-allocations/commit/893379d59d535b1547c288aebf7a14d553695773))
+- Add `--pod-with-namespace` to display pods as `namespace/pod` ([b5f8d6e](https://github.com/davidB/kubectl-view-allocations/commit/b5f8d6eb0d37c73628838a07cda6ce48e0fb0da4))
+
+
 ## [3.1.0] - 2026-09-05
 
 ### Bug Fixes
