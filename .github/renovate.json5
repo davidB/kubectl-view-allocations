@@ -6,6 +6,8 @@
   // only direct dependencies: no lock file maintenance (transitive updates)
   lockFileMaintenance: { enabled: false },
   // no schedule: runs are controlled by .github/workflows/renovate.yaml (weekly + manual)
+  // runs are weekly: don't spread PR creation over several runs (default limit is 2 per hour)
+  prHourlyLimit: 0,
   automerge: true,
   automergeType: "pr",
   packageRules: [
