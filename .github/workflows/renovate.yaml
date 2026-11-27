@@ -15,7 +15,7 @@ jobs:
     if: ${{ github.repository_owner == 'davidB' }}
     steps:
       - uses: actions/checkout@v7
-      - uses: renovatebot/github-action@v46.3.13
+      - uses: renovatebot/github-action@v46.3.15
         with:
           # a PAT (or GitHub App token) is required: PRs created with GITHUB_TOKEN don't trigger the ci workflow
           token: ${{ secrets.RENOVATE_TOKEN }}
